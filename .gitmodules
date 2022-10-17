@@ -4,3 +4,6 @@
 [submodule "lib/Line-of-Credit"]
 	path = lib/Line-of-Credit
 	url = https://github.com/debtdao/Line-of-Credit
+[submodule "lib/idle-contracts"]
+	path = lib/idle-contracts
+	url = https://github.com/Idle-Labs/idle-contracts
