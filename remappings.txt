@@ -1,0 +1,7 @@
+Line-of-Credit/=lib/Line-of-Credit/contracts/
+chainlink/=lib/Line-of-Credit/node_modules/@chainlink/contracts/src/v0.8/
+ds-test/=lib/forge-std/lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+idle-contracts/=lib/idle-contracts/
+openzeppelin/=lib/Line-of-Credit/node_modules/@openzeppelin/contracts/
+idle-fee-collector/=lib/idle-fee-collector/contracts/

@@ -7,3 +7,6 @@
 [submodule "lib/idle-contracts"]
 	path = lib/idle-contracts
 	url = https://github.com/Idle-Labs/idle-contracts
+[submodule "lib/idle-fee-collector"]
+	path = lib/idle-fee-collector
+	url = https://github.com/Idle-Finance/idle-fee-collector
