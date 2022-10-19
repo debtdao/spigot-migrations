@@ -13,3 +13,5 @@
 [submodule "lib/Line-of-credit"]
 	path = lib/Line-of-credit
 	url = https://github.com/debtdao/Line-of-credit
+[submodule "/Users/craigson/Dev/debtDao/spigot-migrations/lib/Line-of-credit"]
+	branch = halborn-fixes
