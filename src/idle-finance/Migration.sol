@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.15;
+pragma solidity ^0.8.4;
 
-import {FeeCollector} from "idle-fee-collector/feeCollector/FeeCollector.sol";
-import {Spigot} from "Line-of-Credit/contracts/modules/spigot/Spigot.sol";
-import {SecuredLine} from "Line-of-Credit/contracts/modules/credit/SecuredLine.sol";
+import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
+import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 
 contract Migration {
     address private immutable owner;
@@ -12,7 +11,6 @@ contract Migration {
     address idleFeeCollector;
 
     address governanceProposal;
-    LineFactory linefactory;
     Spigot spigot;
 
     // 0 - deploy spigot

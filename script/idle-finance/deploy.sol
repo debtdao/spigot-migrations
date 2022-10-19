@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.4;
 
-import "{forge-std/Script.sol";
+import "forge-std/Script.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
 
 contract DeployIdleMigrations is Script {
