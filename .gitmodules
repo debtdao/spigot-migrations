@@ -10,3 +10,6 @@
 [submodule "lib/idle-fee-collector"]
 	path = lib/idle-fee-collector
 	url = https://github.com/Idle-Finance/idle-fee-collector
+[submodule "lib/Line-of-credit"]
+	path = lib/Line-of-credit
+	url = https://github.com/debtdao/Line-of-credit
