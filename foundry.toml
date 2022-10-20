@@ -4,13 +4,12 @@ out = 'out'
 libs = ['lib']
 
 remappings = [
-"ds-test/=lib/forge-std/lib/ds-test/src/",
+"Line-of-Credit/=lib/Line-of-Credit/contracts/",
+"chainlink/=lib/Line-of-Credit/lib/chainlink/contracts/src/v0.8/",
+"ds-test/=lib/Line-of-Credit/lib/ds-test/src/",
 "forge-std/=lib/forge-std/src/",
-"idle-contracts/=lib/idle-contracts/",
-"idle-fee-collector/=lib/idle-fee-collector/contracts/",
-"chainlink/=lib/line-of-credit/lib/chainlink/contracts/src/v0.8/",
-"openzeppelin/=lib/line-of-credit/lib/openzeppelin-contracts/contracts/",
-"Line-of-Credit/=lib/line-of-credit/contracts/"
+"openzeppelin/=lib/Line-of-Credit/lib/openzeppelin-contracts/contracts/",
+"idle-smart-treasury/=lib/idle-smart-treasury/contracts/"
 ]
 
 libraries = []

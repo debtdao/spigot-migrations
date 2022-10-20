@@ -7,28 +7,23 @@ import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 contract Migration {
     address private immutable owner;
 
-    address idleMultiSig;
-    address idleFeeCollector;
+    // address idleMultiSig;
+    // address idleFeeCollector;
 
-    address governanceProposal;
-    Spigot spigot;
+    // address governanceProposal;
+    // Spigot spigot;
+    address spigot;
 
     // 0 - deploy spigot
     // 1 - take owner ship of revenue contract from governance
     // 2 - transfer ownership of revenue to spigot
     // 3 - test revenue can be claimed
-    constructor(
-        address gov,
-        address rev,
-        address spig
-    ) {
+    constructor(address spigot_) {
         owner = msg.sender;
-        spigot = new Spigot(msg.sender, idleMultiSig, idleFeeCollector);
+        spigot = spigot_;
     }
 
     function migrate() external onlyOwner {}
-
-    function createIdleGovernanceProposal() external onlyOwner {}
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Migration: Unauthorized");

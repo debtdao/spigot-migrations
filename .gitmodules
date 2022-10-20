@@ -1,20 +1,16 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
-[submodule "lib/Line-of-Credit"]
-	path = lib/Line-of-Credit
-	url = https://github.com/debtdao/Line-of-Credit
-[submodule "lib/idle-contracts"]
-	path = lib/idle-contracts
-	url = https://github.com/Idle-Labs/idle-contracts
-[submodule "lib/idle-fee-collector"]
-	path = lib/idle-fee-collector
-	url = https://github.com/Idle-Finance/idle-fee-collector
-[submodule "lib/Line-of-credit"]
-	path = lib/Line-of-credit
-	url = https://github.com/debtdao/Line-of-credit
-[submodule "/Users/craigson/Dev/debtDao/spigot-migrations/lib/Line-of-credit"]
-	branch = halborn-fixes
+	url = https://github.com/foundry-rs/forge-stds
 [submodule "lib/chainlink"]
 	path = lib/chainlink
 	url = https://github.com/smartcontractkit/chainlink
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "lib/Line-of-Credit"]
+	path = lib/Line-of-Credit
+	url = https://github.com/debtdao/Line-of-Credit
+	branch = update/line-factory-config
+[submodule "lib/idle-smart-treasury"]
+	path = lib/idle-smart-treasury
+	url = https://github.com/Idle-Finance/idle-smart-treasury

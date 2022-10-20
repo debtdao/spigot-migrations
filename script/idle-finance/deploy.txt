@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+import "forge-std/Script.sol";
+import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
+import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
+
+contract DeployIdleMigrations is Script, ISpigot {
+    address idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
+    address idleFeeTreasury = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
+
+    /*
+        1 - Deploy Spigot
+        2 - Deploy Migration
+        3 - Transfer ownership of spigot to migration
+    */
+
+    Spigot idleSpigot;
+
+    constructor() {}
+
+    function run() public {
+        vm.broadcast(vm.envUint("MIGRATION_DEPLOYER_PVT_KEY"));
+
+        // deploy the spigot
+        // idleSpigot = new Spigot(
+        //     vm.envUint("MIGRATION_DEPLOYER_ADDRESS"), // owner (will be transferred to lenger)
+        //     idleFeeTreasury, // operator (borrower, ie owner of the revenue contract)
+        //     idleFeeTreasury // treasury (multisig)
+        // );
+
+        // create spigot settings
+        /*
+        struct Setting {
+            uint8 ownerSplit;             // x/100 % to Owner, rest to Treasury
+            bytes4 claimFunction;         // function signature on contract to call and claim revenue
+            bytes4 transferOwnerFunction; // function signature on contract to call and transfer ownership 
+        }
+    */
+        // Setting memory idleSpigotSettings = Setting({
+        //     ownerSplit: 100, // 100% to the spigot
+        //     claimFunction: ,
+        //     transferOwnerFunctions: // grantRole
+        // })
+
+        // idleSpigot.addSpigot(idleFeeCollector, )
+    }
+}
