@@ -63,73 +63,78 @@ contract IdleMigrationTest is Test {
         emit log_named_address("debtDaoDeployer", debtDaoDeployer);
 
         vm.prank(debtDaoDeployer);
-        moduleFactory = new ModuleFactory();
+        oracle = new Oracle(chainlinkFeedRegistry);
+        // moduleFactory = new ModuleFactory();
     }
 
     function test_migrateToSpigot() external {
         // create a line of credit
-        idleLineOfCredit = _deployLineOfCredit();
+        // idleLineOfCredit = _deployLineOfCredit();
 
-        Migration migration = new Migration(idleSpigotAddress);
-
-        // change the admin user
-        vm.prank(idleDeveloperLeagueMultisig);
-
-        IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
-    }
-
-    function _deployLineOfCredit() internal returns (address line) {
-        // deploy the Oracle
-        vm.startPrank(debtDaoDeployer);
-        oracle = new Oracle(chainlinkFeedRegistry);
-        emit log_named_address("Oracle", address(oracle));
-
-        // deploy the Spigot contract
-        idleSpigotAddress = moduleFactory.deploySpigot(
-            debtDaoDeployer, // owner (will be transferred to lender)
-            idleFeeTreasury, // operator (borrower, ie owner of the revenue contract)
-            idleFeeTreasury // treasury (multisig)
-        );
-        emit log_named_address("Spigot", idleSpigotAddress);
-
-        // deploy the escrow contract
-        idleEscrowAddress = moduleFactory.deployEscrow(
-            0, // minCRatio (0 means you don't have to look after collatoral)
-            address(oracle), // oracle
-            debtDaoDeployer, // owner ( TODO: this will be updated to the Line of Credit)
-            idleFeeTreasury // borrower (TODO: this )
-        );
-        emit log_named_address("Escrow", idleEscrowAddress);
-
-        // deploy the Line of Credit
-
-        lineFactory = new LineFactory(
-            address(address(moduleFactory)),
+        Migration migration = new Migration(
             debtDaoDeployer,
             address(oracle),
-            zeroExSwapTarget
+            idleTreasuryLeagueMultiSig, // borrower
+            90 days //ttl
         );
 
-        ILineFactory.CoreLineParams memory coreParams = ILineFactory
-            .CoreLineParams({
-                borrower: idleTreasuryLeagueMultiSig,
-                ttl: ttl,
-                cratio: uint32(creditRatio),
-                revenueSplit: uint8(revenueSplit)
-            });
+        // change the admin user
+        // vm.prank(idleDeveloperLeagueMultisig);
 
-        line = lineFactory.deploySecuredLineWithModules(
-            coreParams,
-            idleSpigotAddress,
-            idleEscrowAddress
-        );
-
-        // update owner of escrow and spigot to the line
-        IEscrow(idleEscrowAddress).updateLine(address(line));
-        ISpigot(idleSpigotAddress).updateOwner(address(line));
-
-        vm.stopPrank();
-
-        emit log_named_address("Idle Credit Line", idleLineOfCredit);
+        // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
     }
+
+    // function _deployLineOfCredit() internal returns (address line) {
+    //     // deploy the Oracle
+
+    //     emit log_named_address("Oracle", address(oracle));
+
+    //     // deploy the Spigot contract
+    //     idleSpigotAddress = moduleFactory.deploySpigot(
+    //         debtDaoDeployer, // owner (will be transferred to lender)
+    //         idleFeeTreasury, // operator (borrower, ie owner of the revenue contract)
+    //         idleFeeTreasury // treasury (multisig)
+    //     );
+    //     emit log_named_address("Spigot", idleSpigotAddress);
+
+    //     // deploy the escrow contract
+    //     idleEscrowAddress = moduleFactory.deployEscrow(
+    //         0, // minCRatio (0 means you don't have to look after collatoral)
+    //         address(oracle), // oracle
+    //         debtDaoDeployer, // owner ( TODO: this will be updated to the Line of Credit)
+    //         idleFeeTreasury // borrower (TODO: this )
+    //     );
+    //     emit log_named_address("Escrow", idleEscrowAddress);
+
+    //     // deploy the Line of Credit
+
+    //     lineFactory = new LineFactory(
+    //         address(address(moduleFactory)),
+    //         debtDaoDeployer,
+    //         address(oracle),
+    //         zeroExSwapTarget
+    //     );
+
+    //     ILineFactory.CoreLineParams memory coreParams = ILineFactory
+    //         .CoreLineParams({
+    //             borrower: idleTreasuryLeagueMultiSig,
+    //             ttl: ttl,
+    //             cratio: uint32(creditRatio),
+    //             revenueSplit: uint8(revenueSplit)
+    //         });
+
+    //     line = lineFactory.deploySecuredLineWithModules(
+    //         coreParams,
+    //         idleSpigotAddress,
+    //         idleEscrowAddress
+    //     );
+
+    //     // update owner of escrow and spigot to the line
+    //     IEscrow(idleEscrowAddress).updateLine(address(line));
+    //     ISpigot(idleSpigotAddress).updateOwner(address(line));
+
+    //     vm.stopPrank();
+
+    //     emit log_named_address("Idle Credit Line", idleLineOfCredit);
+    // }
 }
