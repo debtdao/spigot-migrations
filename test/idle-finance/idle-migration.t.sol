@@ -68,10 +68,9 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migrateToSpigot() external {
-        // create a line of credit
-        // idleLineOfCredit = _deployLineOfCredit();
-
+        // the migration contract deploys the line of credit, along with spigot and escrow
         Migration migration = new Migration(
+            idleFeeCollector,
             debtDaoDeployer,
             address(oracle),
             idleTreasuryLeagueMultiSig, // borrower
