@@ -15,6 +15,10 @@ import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {Migration} from "../../src/idle-finance/Migration.sol";
 
 interface IFeeCollector {
+    function hasRole(bytes32 role, address account) external returns (bool);
+
+    function isAddressAdmin(address _address) external view returns (bool);
+
     function replaceAdmin(address _newAdmin) external;
 }
 
@@ -32,6 +36,8 @@ contract IdleMigrationTest is Test {
         1. ***ASK:*** ***Might have to be an onchain proposal instead of multisig tx***
     */
 
+    bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
+
     ModuleFactory moduleFactory;
     LineFactory lineFactory;
     Oracle oracle;
@@ -46,6 +52,7 @@ contract IdleMigrationTest is Test {
         0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814; // borrower
     address idleDeveloperLeagueMultisig =
         0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b; // Fee collector admin
+    address idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
 
     address zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
@@ -67,6 +74,29 @@ contract IdleMigrationTest is Test {
         // moduleFactory = new ModuleFactory();
     }
 
+    function test_returning_admin_to_multisig() external {
+        Migration migration = new Migration(
+            idleFeeCollector,
+            debtDaoDeployer,
+            address(oracle),
+            idleTreasuryLeagueMultiSig, // borrower
+            90 days //ttl
+        );
+
+        vm.prank(idleTimelock);
+        IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
+
+        assertTrue(
+            IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
+        );
+
+        migration.returnAdmin(idleTimelock);
+
+        assertTrue(
+            IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock)
+        );
+    }
+
     function test_migrateToSpigot() external {
         // the migration contract deploys the line of credit, along with spigot and escrow
         Migration migration = new Migration(
@@ -77,8 +107,9 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
-        // change the admin user
-        // vm.prank(idleDeveloperLeagueMultisig);
+        // change admin user to migration
+        vm.prank(idleDeveloperLeagueMultisig);
+        IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
 
         // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
     }

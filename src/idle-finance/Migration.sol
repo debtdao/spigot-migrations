@@ -10,6 +10,10 @@ import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 
 interface IFeeCollector {
     function hasRole(bytes32 role, address account) external returns (bool);
+
+    function isAddressAdmin(address _address) external view returns (bool);
+
+    function replaceAdmin(address _newAdmin) external;
 }
 
 contract Migration {
@@ -32,6 +36,8 @@ contract Migration {
     // Spigot spigot;
     address spigot;
     address lineOfCredit;
+
+    bool migrationComplete;
 
     // 0 - deploy spigot
     // 1 - take owner ship of revenue contract from governance
@@ -73,12 +79,18 @@ contract Migration {
 
     function migrate() external onlyOwner {
         require(
-            IFeeCollector(feeCollector).hasRole(
-                DEFAULT_ADMIN_ROLE,
-                address(this)
-            ),
+            IFeeCollector(feeCollector).isAddressAdmin(address(this)),
             "Migration contract is not an admin"
         );
+        migrationComplete = true;
+        // update the beneficiaries
+
+        // transfer ownership to spigot
+    }
+
+    function returnAdmin(address newAdmin_) external onlyOwner {
+        require(!migrationComplete, "Migration hsa been completed");
+        IFeeCollector(feeCollector).replaceAdmin(newAdmin_);
     }
 
     modifier onlyOwner() {
