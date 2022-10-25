@@ -48,6 +48,8 @@ contract Migration {
 
     event MigrationComplete();
 
+    error NotFeeCollectorAdmin();
+
     // 0 - deploy spigot
     // 1 - take owner ship of revenue contract from governance
     // 2 - transfer ownership of revenue to spigot
@@ -96,10 +98,10 @@ contract Migration {
 
     */
     function migrate() external onlyOwner {
-        require(
-            IFeeCollector(feeCollector).isAddressAdmin(address(this)),
-            "Migration contract is not an admin"
-        );
+        if (!IFeeCollector(feeCollector).isAddressAdmin(address(this))) {
+            revert NotFeeCollectorAdmin();
+        }
+
         require(!migrationComplete, "Migration is complete");
         migrationComplete = true;
 
@@ -141,7 +143,7 @@ contract Migration {
     }
 
     function returnAdmin(address newAdmin_) external onlyOwner {
-        require(!migrationComplete, "Migration hsa been completed");
+        require(!migrationComplete, "Migration has been completed");
         IFeeCollector(feeCollector).replaceAdmin(newAdmin_);
     }
 
@@ -154,6 +156,7 @@ contract Migration {
     // ===================== Modifiers
 
     modifier onlyOwner() {
+        // TODO: improve error messages
         require(msg.sender == owner, "Migration: Unauthorized");
         _;
     }

@@ -106,6 +106,26 @@ contract IdleMigrationTest is Test {
         );
     }
 
+    function test_migrate_when_not_admin() external {
+        Migration migration = new Migration(
+            address(moduleFactory),
+            address(lineFactory),
+            idleFeeCollector,
+            debtDaoDeployer,
+            address(oracle),
+            idleTreasuryLeagueMultiSig, // borrower
+            90 days //ttl
+        );
+
+        vm.startPrank(makeAddr("random1"));
+        vm.expectRevert(bytes("Migration: Unauthorized"));
+        migration.migrate();
+        vm.stopPrank();
+
+        vm.expectRevert(Migration.NotFeeCollectorAdmin.selector);
+        migration.migrate();
+    }
+
     function test_migrateToSpigot() external {
         // the migration contract deploys the line of credit, along with spigot and escrow
         Migration migration = new Migration(
@@ -121,6 +141,10 @@ contract IdleMigrationTest is Test {
         // change admin user to migration
         vm.prank(idleDeveloperLeagueMultisig);
         IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
+
+        assertTrue(
+            IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
+        );
 
         // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
     }
