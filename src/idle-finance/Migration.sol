@@ -36,9 +36,6 @@ contract Migration {
     address private immutable debtDaoDeployer;
     address private immutable feeCollector;
 
-    ModuleFactory moduleFactory;
-    LineFactory lineFactory;
-
     // address idleMultiSig;
     // address idleFeeCollector;
 
@@ -57,6 +54,8 @@ contract Migration {
     // 3 - test revenue can be claimed
     // TODO: should probably pass in the multisig address
     constructor(
+        address moduleFactory_,
+        address lineFactory_,
         address revenueContract_,
         address debtDaoDeployer_,
         address oracle_,
@@ -67,13 +66,6 @@ contract Migration {
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
         oracle = oracle_;
-        moduleFactory = new ModuleFactory();
-        lineFactory = new LineFactory(
-            address(moduleFactory), // module factory
-            debtDaoDeployer_, // arbiter
-            oracle_, // oracle
-            zeroExSwapTarget // swapTarget
-        );
 
         ILineFactory.CoreLineParams memory coreParams = ILineFactory
             .CoreLineParams({
@@ -83,7 +75,9 @@ contract Migration {
                 revenueSplit: 100 //uint8(revenueSplit)
             });
 
-        lineOfCredit = lineFactory.deploySecuredLineWithConfig(coreParams);
+        lineOfCredit = ILineFactory(lineFactory_).deploySecuredLineWithConfig(
+            coreParams
+        );
     }
 
     /*
@@ -127,15 +121,16 @@ contract Migration {
         address spigotAddress = address(spigotedLine.spigot());
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
+        uint256[] memory newBeneficiaires = new uint256[](4);
+        newBeneficiaires[0] = 0; // smart treasury
+        newBeneficiaires[1] = 70000; // spigot
+        newBeneficiaires[2] = 10000; // rebalancer
+        newBeneficiaires[3] = 20000; // staking
+
         IFeeCollector(feeCollector).replaceBeneficiaryAt(
             1,
             spigotAddress, // spgiot address
-            [
-                0, // smart treasury
-                70000, // spigot
-                10000, // rebalancer
-                20000 // staking
-            ]
+            newBeneficiaires
         );
 
         // transfer ownership to spigot

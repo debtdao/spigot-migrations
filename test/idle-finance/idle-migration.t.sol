@@ -71,11 +71,20 @@ contract IdleMigrationTest is Test {
 
         vm.prank(debtDaoDeployer);
         oracle = new Oracle(chainlinkFeedRegistry);
-        // moduleFactory = new ModuleFactory();
+        moduleFactory = new ModuleFactory();
+
+        lineFactory = new LineFactory(
+            address(moduleFactory), // module factory
+            debtDaoDeployer, // arbiter
+            address(oracle), // oracle
+            zeroExSwapTarget // swapTarget
+        );
     }
 
     function test_returning_admin_to_multisig() external {
         Migration migration = new Migration(
+            address(moduleFactory),
+            address(lineFactory),
             idleFeeCollector,
             debtDaoDeployer,
             address(oracle),
@@ -100,6 +109,8 @@ contract IdleMigrationTest is Test {
     function test_migrateToSpigot() external {
         // the migration contract deploys the line of credit, along with spigot and escrow
         Migration migration = new Migration(
+            address(moduleFactory),
+            address(lineFactory),
             idleFeeCollector,
             debtDaoDeployer,
             address(oracle),
