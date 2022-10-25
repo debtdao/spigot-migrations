@@ -16,6 +16,8 @@ This is reflected in the `remappings.txt`.
 
 ## Structure
 
+The migration for each protocol is split into three separate files. `script` for deployment, `src` for the contract itself, and `test` for the tests that rely on an archived RPC node for testing against a fork of mainnet.
+
 ```
 root
     |_script
