@@ -117,10 +117,8 @@ contract Migration {
         // add the spigot to the line
         ISpigotedLine(lineOfCredit).addSpigot(feeCollector, spigotSettings);
 
-        ISpigotedLine spigotedLine = ISpigotedLine(lineOfCredit);
-
         // retrieve the spigot and cast to address
-        address spigotAddress = address(spigotedLine.spigot());
+        address spigotAddress = address(ISpigotedLine(lineOfCredit).spigot());
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
         uint256[] memory newBeneficiaires = new uint256[](4);
