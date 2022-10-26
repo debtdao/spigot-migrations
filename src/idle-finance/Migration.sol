@@ -6,6 +6,8 @@ import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
 import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 import {ISecuredLine} from "Line-of-Credit/interfaces/ISecuredLine.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
+
+import {IModuleFactory} from "Line-of-Credit/interfaces/IModuleFactory.sol";
 import {SpigotedLine} from "Line-of-Credit/modules/credit/SpigotedLine.sol";
 import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
@@ -35,6 +37,8 @@ contract Migration {
     address private immutable oracle;
     address private immutable debtDaoDeployer;
     address private immutable feeCollector;
+    address private immutable idleTreasuryMultisig;
+    address private immutable moduleFactory;
 
     // address idleMultiSig;
     // address idleFeeCollector;
@@ -42,6 +46,7 @@ contract Migration {
     // address governanceProposal;
     // Spigot spigot;
     address spigot;
+    address escrow;
     address lineOfCredit;
 
     bool migrationComplete;
@@ -49,24 +54,28 @@ contract Migration {
     event MigrationComplete();
 
     error NotFeeCollectorAdmin();
+    error MigrationFailed();
 
     // 0 - deploy spigot
     // 1 - take owner ship of revenue contract from governance
     // 2 - transfer ownership of revenue to spigot
     // 3 - test revenue can be claimed
-    // TODO: should probably pass in the multisig address
+    // TODO: determine which addresses to save
     constructor(
         address moduleFactory_,
         address lineFactory_,
         address revenueContract_,
+        address idleTreasuryMultisig_,
         address debtDaoDeployer_,
         address oracle_,
         address borrower_,
         uint256 ttl_
     ) {
         owner = msg.sender; // presumably Idle Deployer
+        moduleFactory = moduleFactory_;
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
+        idleTreasuryMultisig = idleTreasuryMultisig_;
         oracle = oracle_;
 
         ILineFactory.CoreLineParams memory coreParams = ILineFactory
@@ -77,8 +86,23 @@ contract Migration {
                 revenueSplit: 100 //uint8(revenueSplit)
             });
 
-        lineOfCredit = ILineFactory(lineFactory_).deploySecuredLineWithConfig(
-            coreParams
+        // lineOfCredit = ILineFactory(lineFactory_).deploySecuredLineWithConfig(
+        //     coreParams
+        // );
+
+        // deploy spigot
+        spigot = IModuleFactory(moduleFactory_).deploySpigot(
+            address(this), // owner - debtdaoMultisig // TODO: change this to multisig
+            idleTreasuryMultisig_, // treasury - Treasury Multisig
+            idleTreasuryMultisig_ // operator - Treasury Multisig
+        );
+
+        // deploy escrow
+        escrow = IModuleFactory(moduleFactory_).deployEscrow(
+            0, // min credit ratio
+            oracle_, // oracle
+            address(this), // owner
+            idleTreasuryMultisig_ // borrower
         );
     }
 
@@ -115,10 +139,15 @@ contract Migration {
         );
 
         // add the spigot to the line
-        ISpigotedLine(lineOfCredit).addSpigot(feeCollector, spigotSettings);
+        // ISpigotedLine(lineOfCredit).addSpigot(feeCollector, spigotSettings);
+
+        // add a revenue stream
+        ISpigot(spigot).addSpigot(feeCollector, spigotSettings);
+
+        // update the spigot (is this necessary?)
 
         // retrieve the spigot and cast to address
-        address spigotAddress = address(ISpigotedLine(lineOfCredit).spigot());
+        // address spigotAddress = address(ISpigotedLine(lineOfCredit).spigot());
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
         uint256[] memory newBeneficiaires = new uint256[](4);
@@ -129,13 +158,16 @@ contract Migration {
 
         IFeeCollector(feeCollector).replaceBeneficiaryAt(
             1,
-            spigotAddress, // spgiot address
+            spigot, // spgiot address
             newBeneficiaires
         );
 
         // transfer ownership to spigot
         // TODO: can spigot call "replaceAdmin" on feeCollector?
-        IFeeCollector(feeCollector).replaceAdmin(spigotAddress);
+        // IFeeCollector(feeCollector).replaceAdmin(spigotAddress);
+        IFeeCollector(feeCollector).replaceAdmin(spigot);
+
+        // require spigot is admin on fee collector
 
         emit MigrationComplete();
     }

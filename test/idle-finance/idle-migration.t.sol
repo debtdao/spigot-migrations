@@ -44,6 +44,7 @@ contract IdleMigrationTest is Test {
 
     // Oracle
     address chainlinkFeedRegistry = 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf;
+    address zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
     // Spigot
     address idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
@@ -53,8 +54,6 @@ contract IdleMigrationTest is Test {
     address idleDeveloperLeagueMultisig =
         0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b; // Fee collector admin
     address idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
-
-    address zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
     address debtDaoDeployer = makeAddr("debtDaoDeployer");
 
@@ -86,6 +85,7 @@ contract IdleMigrationTest is Test {
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
+            idleTreasuryLeagueMultiSig,
             debtDaoDeployer,
             address(oracle),
             idleTreasuryLeagueMultiSig, // borrower
@@ -111,6 +111,7 @@ contract IdleMigrationTest is Test {
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
+            idleTreasuryLeagueMultiSig,
             debtDaoDeployer,
             address(oracle),
             idleTreasuryLeagueMultiSig, // borrower
@@ -132,13 +133,15 @@ contract IdleMigrationTest is Test {
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
+            idleTreasuryLeagueMultiSig,
             debtDaoDeployer,
             address(oracle),
             idleTreasuryLeagueMultiSig, // borrower
             90 days //ttl
         );
 
-        // update the fee collector's admin user to the migration contract
+        // TODO: this needs to be a governance decision, ie create proposal and pass it
+
         vm.prank(idleTimelock);
         IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
 
