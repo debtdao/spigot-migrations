@@ -42,12 +42,16 @@ contract IdleMigrationTest is Test {
     LineFactory lineFactory;
     Oracle oracle;
 
-    // Oracle
+    // Oracle ( price feeds )
     address chainlinkFeedRegistry = 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf;
+
+    // Ox protocol (token swaps)
     address zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
-    // Spigot
+    // Idle Revenue Contract
     address idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
+
+    // Idle Treasury
     address idleFeeTreasury = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
     address idleTreasuryLeagueMultiSig =
         0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814; // borrower
@@ -65,8 +69,12 @@ contract IdleMigrationTest is Test {
     uint256 creditRatio = 0;
     uint256 revenueSplit = 100;
 
+    uint256 ethMainnetFork;
+
     constructor() {
         emit log_named_address("debtDaoDeployer", debtDaoDeployer);
+
+        ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"));
 
         vm.prank(debtDaoDeployer);
         oracle = new Oracle(chainlinkFeedRegistry);

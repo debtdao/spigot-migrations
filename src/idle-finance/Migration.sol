@@ -78,18 +78,6 @@ contract Migration {
         idleTreasuryMultisig = idleTreasuryMultisig_;
         oracle = oracle_;
 
-        ILineFactory.CoreLineParams memory coreParams = ILineFactory
-            .CoreLineParams({
-                borrower: borrower_, // idleTreasuryLeagueMultiSig,
-                ttl: ttl_,
-                cratio: 0, //uint32(creditRatio),
-                revenueSplit: 100 //uint8(revenueSplit)
-            });
-
-        // lineOfCredit = ILineFactory(lineFactory_).deploySecuredLineWithConfig(
-        //     coreParams
-        // );
-
         // deploy spigot
         spigot = IModuleFactory(moduleFactory_).deploySpigot(
             address(this), // owner - debtdaoMultisig // TODO: change this to multisig
@@ -103,6 +91,24 @@ contract Migration {
             oracle_, // oracle
             address(this), // owner
             idleTreasuryMultisig_ // borrower
+        );
+
+        ILineFactory.CoreLineParams memory coreParams = ILineFactory
+            .CoreLineParams({
+                borrower: borrower_, // idleTreasuryLeagueMultiSig,
+                ttl: ttl_,
+                cratio: 0, //uint32(creditRatio),
+                revenueSplit: 100 //uint8(revenueSplit)
+            });
+
+        // lineOfCredit = ILineFactory(lineFactory_).deploySecuredLineWithConfig(
+        //     coreParams
+        // );
+
+        ILineFactory(lineFactory_).deploySecuredLineWithModules(
+            coreParams,
+            spigot,
+            escrow
         );
     }
 
@@ -143,6 +149,8 @@ contract Migration {
 
         // add a revenue stream
         ISpigot(spigot).addSpigot(feeCollector, spigotSettings);
+
+        // transfer ownership of spigot and escrow to line
 
         // update the spigot (is this necessary?)
 
