@@ -22,6 +22,16 @@ interface IFeeCollector {
     function replaceAdmin(address _newAdmin) external;
 }
 
+interface IGovernorBravo {
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        string[] memory signatures,
+        bytes[] memory calldatas,
+        string memory description
+    ) external returns (uint256);
+}
+
 contract IdleMigrationTest is Test {
     /*
         1 - Deploy Spigot
@@ -58,6 +68,7 @@ contract IdleMigrationTest is Test {
     address idleDeveloperLeagueMultisig =
         0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b; // Fee collector admin
     address idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
+    address idleGovernanceBravo = 0x3D5Fc645320be0A085A32885F078F7121e5E5375;
 
     address debtDaoDeployer = makeAddr("debtDaoDeployer");
 
@@ -160,5 +171,13 @@ contract IdleMigrationTest is Test {
         migration.migrate();
 
         // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
+    }
+
+    function _submitProposal(address) internal {
+        // targets - target addresses
+        // values - values (Eth) for proposal calls
+        // signatures - function signatures
+        // calldatas -
+        // description - proposal IDs
     }
 }

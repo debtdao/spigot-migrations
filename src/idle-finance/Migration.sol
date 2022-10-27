@@ -5,6 +5,10 @@ import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
 import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 import {ISecuredLine} from "Line-of-Credit/interfaces/ISecuredLine.sol";
+
+import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
+
+import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
 
 import {IModuleFactory} from "Line-of-Credit/interfaces/IModuleFactory.sol";
@@ -29,25 +33,27 @@ interface IFeeCollector {
 }
 
 contract Migration {
+    // admin
     bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
+    address private immutable owner;
 
+    // trusted 3rd-parties
     address private constant zeroExSwapTarget =
         0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
-    address private immutable owner;
-    address private immutable oracle;
+
+    // debtdao
     address private immutable debtDaoDeployer;
-    address private immutable feeCollector;
-    address private immutable idleTreasuryMultisig;
+    address private immutable oracle;
     address private immutable moduleFactory;
 
-    // address idleMultiSig;
-    // address idleFeeCollector;
+    // Idle
+    address private immutable feeCollector;
+    address private immutable idleTreasuryMultisig;
 
-    // address governanceProposal;
-    // Spigot spigot;
-    address spigot;
-    address escrow;
-    address lineOfCredit;
+    // migration
+    address immutable spigot;
+    address immutable escrow;
+    address immutable securedLine;
 
     bool migrationComplete;
 
@@ -61,6 +67,9 @@ contract Migration {
     // 2 - transfer ownership of revenue to spigot
     // 3 - test revenue can be claimed
     // TODO: determine which addresses to save
+    // TODO: add deadmans switch with timestamp + duration ( in case migration fails )
+    // TODO: if the migration contract is still the owner of the spigot and escrow, and not owned by line
+    // should be transferred back
     constructor(
         address moduleFactory_,
         address lineFactory_,
@@ -105,7 +114,7 @@ contract Migration {
         //     coreParams
         // );
 
-        ILineFactory(lineFactory_).deploySecuredLineWithModules(
+        securedLine = ILineFactory(lineFactory_).deploySecuredLineWithModules(
             coreParams,
             spigot,
             escrow
@@ -136,12 +145,14 @@ contract Migration {
         migrationComplete = true;
 
         // add the revenue contract
+        // programs the function into the spigot which gets called when remove Spigot
+        // the operator is the entity to whom the spigot is returned when loan is repaid
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100, // 100% to owner
             _getSelector(
                 "withdraw(address _token, address _toAddress, uint256 _amount)"
             ), // claim fn
-            _getSelector("replaceAdmin(address _newAdmin)") // transferOwnerFn
+            _getSelector("replaceAdmin(address _newAdmin)") // transferOwnerFn // gets transferred to operator
         );
 
         // add the spigot to the line
@@ -151,23 +162,30 @@ contract Migration {
         ISpigot(spigot).addSpigot(feeCollector, spigotSettings);
 
         // transfer ownership of spigot and escrow to line
+        // TODO: test these
+        ISpigot(spigot).updateOwner(securedLine);
+        IEscrow(escrow).updateLine(securedLine);
 
-        // update the spigot (is this necessary?)
-
-        // retrieve the spigot and cast to address
-        // address spigotAddress = address(ISpigotedLine(lineOfCredit).spigot());
+        require(
+            ISpigot(spigot).owner() == securedLine,
+            "Migration: Spigot owner transfer failed"
+        );
+        require(
+            IEscrow(escrow).line() == securedLine,
+            "Migration: Escrow line transfer failed"
+        );
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
-        uint256[] memory newBeneficiaires = new uint256[](4);
-        newBeneficiaires[0] = 0; // smart treasury
-        newBeneficiaires[1] = 70000; // spigot
-        newBeneficiaires[2] = 10000; // rebalancer
-        newBeneficiaires[3] = 20000; // staking
+        uint256[] memory newAllocations = new uint256[](4);
+        newAllocations[0] = 0; // smart treasury
+        newAllocations[1] = 70000; // spigot
+        newAllocations[2] = 10000; // rebalancer
+        newAllocations[3] = 20000; // staking
 
         IFeeCollector(feeCollector).replaceBeneficiaryAt(
             1,
             spigot, // spgiot address
-            newBeneficiaires
+            newAllocations
         );
 
         // transfer ownership to spigot
@@ -176,6 +194,10 @@ contract Migration {
         IFeeCollector(feeCollector).replaceAdmin(spigot);
 
         // require spigot is admin on fee collector
+        require(
+            IFeeCollector(feeCollector).isAddressAdmin(spigot),
+            "Migration: Spigot is not the feeCollector admin"
+        );
 
         emit MigrationComplete();
     }
@@ -188,7 +210,7 @@ contract Migration {
     // ===================== Internal
 
     function _getSelector(string memory _func) internal pure returns (bytes4) {
-        return bytes4(keccak256(bytes(_func)));
+        return bytes4(keccak256(bytes(_func))); //TODO: use abi encode with selector
     }
 
     // ===================== Modifiers
