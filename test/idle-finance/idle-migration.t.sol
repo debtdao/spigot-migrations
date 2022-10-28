@@ -277,5 +277,9 @@ contract IdleMigrationTest is Test {
         // execute the tx (depends on ETA) after timelock delay has passed
         vm.warp(block.timestamp + idleTimelockDelay);
         IGovernorBravo(idleGovernanceBravo).execute(id);
+
+        assert(
+            IFeeCollector(idleFeeCollector).isAddressAdmin(migrationContract)
+        );
     }
 }
