@@ -1,0 +1,38 @@
+version: 1
+
+network:
+    - name: Ethereum mainnet
+    - chain_id: 1
+    - fork_rpc_url: https://eth-mainnet.blastapi.io/${API_KEY}
+
+contracts:
+    - third_party:
+          - chainlink_feed_registry:
+                - address: 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf
+          - 0x_swap_target:
+                - address: 0xDef1C0ded9bec7F1a1670819833240f027b25EfF
+    - debt_dao:
+          - multi_sig:
+                - address: 0x123
+    - idle_finance:
+          - fee_collector:
+                - address: 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4
+                - functions:
+                      - replaceAdmin:
+                            - signature: "replaceAdmin(address _newAdmin)"
+                            - selector: 0xc4f4face
+                      - replaceBeneficiaryAt:
+                            - signature: "function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation)"
+                            - selector: 0xee9d496b
+
+          - fee_treasury:
+                - address: 0x69a62C24F16d4914a48919613e8eE330641Bcb94
+          - treasury_league_multi_sig:
+                - address: 0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814
+          - development_league_multi_sig:
+                - address: 0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b
+          - time_lock:
+                - address: 0xD6dABBc2b275114a2366555d6C481EF08FDC2556
+                - functions:
+                      - signature: "executeTransaction(address target, uint value, string memory signature, bytes memory data, uint eta)"
+                      - selector: ""
