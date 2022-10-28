@@ -23,6 +23,17 @@ interface IFeeCollector {
 }
 
 interface IGovernorBravo {
+    enum ProposalState {
+        Pending,
+        Active,
+        Canceled,
+        Defeated,
+        Succeeded,
+        Queued,
+        Expired,
+        Executed
+    }
+
     function propose(
         address[] memory targets,
         uint256[] memory values,
@@ -30,6 +41,14 @@ interface IGovernorBravo {
         bytes[] memory calldatas,
         string memory description
     ) external returns (uint256);
+
+    function castVote(uint256 proposalId, uint8 support) external;
+
+    function state(uint256 proposalId) external view returns (ProposalState);
+
+    function queue(uint256 proposalId) external;
+
+    function execute(uint256 proposalId) external payable;
 }
 
 contract IdleMigrationTest is Test {
@@ -58,10 +77,11 @@ contract IdleMigrationTest is Test {
     // Ox protocol (token swaps)
     address zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
-    // Idle Revenue Contract
-    address idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
+    // debt dao
+    address debtDaoDeployer = makeAddr("debtDaoDeployer");
 
-    // Idle Treasury
+    // Idle
+    address idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
     address idleFeeTreasury = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
     address idleTreasuryLeagueMultiSig =
         0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814; // borrower
@@ -70,8 +90,15 @@ contract IdleMigrationTest is Test {
     address idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
     address idleGovernanceBravo = 0x3D5Fc645320be0A085A32885F078F7121e5E5375;
 
-    address debtDaoDeployer = makeAddr("debtDaoDeployer");
+    uint256 idleVotingDelay = 1; // in blocks
+    uint256 idleVotingPeriod = 17280; // in blocks
+    uint256 idleTimelockDelay = 172800; // in seconds
 
+    // $IDLE holders (voters)
+    address idleCommunityMultisig = 0xb08696Efcf019A6128ED96067b55dD7D0aB23CE4; // 1,203,859 votes
+    address voter2 = makeAddr("voter2");
+
+    // migration
     address idleSpigotAddress;
     address idleEscrowAddress;
     address idleLineOfCredit;
@@ -159,25 +186,87 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
-        // TODO: this needs to be a governance decision, ie create proposal and pass it
+        // Simulate the governance process
+        vm.startPrank(idleDeveloperLeagueMultisig);
+        _submitProposalAndVoteToPass(address(migration));
+        vm.stopPrank();
 
-        vm.prank(idleTimelock);
-        IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
+        // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
 
-        assertTrue(
-            IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
-        );
+        // assertTrue(
+        //     IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
+        // );
 
-        migration.migrate();
+        // migration.migrate();
 
         // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
     }
 
-    function _submitProposal(address) internal {
-        // targets - target addresses
-        // values - values (Eth) for proposal calls
-        // signatures - function signatures
-        // calldatas -
-        // description - proposal IDs
+    /*
+        Quorum: 4% of the total IDLE supply (~520,000 IDLE) voting the pool
+        Timeline: 3 days of voting
+    */
+    function _submitProposalAndVoteToPass(address migrationContract)
+        internal
+        returns (uint256 id)
+    {
+        address[] memory targets = new address[](2);
+        targets[0] = idleFeeCollector;
+        targets[1] = migrationContract;
+
+        uint256[] memory values = new uint256[](2);
+        values[0] = 0;
+        values[1] = 0;
+
+        string[] memory signatures = new string[](2);
+        signatures[0] = "replaceAdmin(address _newAddress)";
+        signatures[1] = "migrate()";
+
+        // TODO: the encoding could very well be RLP
+        bytes[] memory calldatas = new bytes[](2);
+        calldatas[0] = abi.encode(migrationContract); // instead of using encodePacked which removes padding
+        calldatas[1] = abi.encode("");
+
+        // vm.expectEmit(false, false, false, false);
+        // emit ProposalCreated()
+        id = IGovernorBravo(idleGovernanceBravo).propose(
+            targets,
+            values,
+            signatures,
+            calldatas,
+            "IIP-33: Allow DebtDAO migration contract to take admin control of the Fee Collector https://gov.idle.finance/t/debtdao-migration-for-loan/1056"
+        );
+
+        emit log_named_uint("proposal id: ", id);
+
+        vm.roll(block.number + idleVotingDelay + 1);
+
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Active)
+        );
+
+        vm.stopPrank();
+
+        vm.prank(idleCommunityMultisig);
+        IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
+
+        vm.roll(block.number + idleVotingPeriod + 1);
+
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Succeeded)
+        );
+
+        // queue the tx
+        IGovernorBravo(idleGovernanceBravo).queue(id);
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Queued)
+        );
+
+        // execute the tx (depends on ETA) after timelock delay has passed
+        vm.warp(block.timestamp + idleTimelockDelay);
+        IGovernorBravo(idleGovernanceBravo).execute(id);
     }
 }
