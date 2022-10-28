@@ -12,7 +12,7 @@ import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 
-import {Migration} from "../../src/idle-finance/Migration.sol";
+import {Migration} from "./Migration.sol";
 
 interface IFeeCollector {
     function hasRole(bytes32 role, address account) external returns (bool);
@@ -167,7 +167,7 @@ contract IdleMigrationTest is Test {
         );
 
         vm.startPrank(makeAddr("random1"));
-        vm.expectRevert(bytes("Migration: Unauthorized"));
+        vm.expectRevert(bytes("Migration: Unauthorized user"));
         migration.migrate();
         vm.stopPrank();
 
@@ -189,23 +189,10 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
-        // vm.prank(idleTimelock);
-        // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
-
-        // Simulate the governance process
+        // Simulate the governance process, which replaces the admin and performs the migration
         vm.startPrank(idleDeveloperLeagueMultisig);
         _submitProposalAndVoteToPass(address(migration));
         vm.stopPrank();
-
-        // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
-
-        // assertTrue(
-        //     IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
-        // );
-
-        // migration.migrate();
-
-        // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
     }
 
     /*
@@ -234,13 +221,10 @@ contract IdleMigrationTest is Test {
         calldatas[1] = abi.encode("");
 
         emit log_named_address("target", targets[0]);
-        emit log_named_address("migration contract", migrationContract);
         emit log_named_bytes("calldata", calldatas[0]);
         emit log_named_string("signature", signatures[0]);
         emit log_named_uint("value", values[0]);
 
-        // vm.expectEmit(false, false, false, false);
-        // emit ProposalCreated()
         id = IGovernorBravo(idleGovernanceBravo).propose(
             targets,
             values,
@@ -251,6 +235,7 @@ contract IdleMigrationTest is Test {
 
         emit log_named_uint("proposal id: ", id);
 
+        // voting can only start after the delay
         vm.roll(block.number + idleVotingDelay + 1);
 
         assertEq(
@@ -263,6 +248,7 @@ contract IdleMigrationTest is Test {
         vm.prank(idleCommunityMultisig);
         IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
 
+        // voting ends once the voting period is over
         vm.roll(block.number + idleVotingPeriod + 1);
 
         assertEq(
@@ -277,7 +263,7 @@ contract IdleMigrationTest is Test {
             uint256(IGovernorBravo.ProposalState.Queued)
         );
 
-        // execute the tx (depends on ETA) after timelock delay has passed
+        // execute the tx, can only happen after timelock delay has passed
         vm.warp(block.timestamp + idleTimelockDelay);
         IGovernorBravo(idleGovernanceBravo).execute(id);
 
