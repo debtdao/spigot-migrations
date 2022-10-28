@@ -234,6 +234,25 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
+    function test_migration_vote_but_no_quorum() external {
+        Migration migration = new Migration(
+            address(moduleFactory),
+            address(lineFactory),
+            idleFeeCollector,
+            idleTreasuryLeagueMultiSig,
+            idleTimelock,
+            debtDaoDeployer,
+            address(oracle),
+            idleTreasuryLeagueMultiSig, // borrower
+            90 days //ttl
+        );
+
+        // Simulate the governance process, which replaces the admin and performs the migration
+        vm.startPrank(idleDeveloperLeagueMultisig);
+        _proposeAndNoQuorum(address(migration));
+        vm.stopPrank();
+    }
+
     /*
         Quorum: 4% of the total IDLE supply (~520,000 IDLE) voting the pool
         Timeline: 3 days of voting
@@ -349,9 +368,26 @@ contract IdleMigrationTest is Test {
         IGovernorBravo(idleGovernanceBravo).queue(id);
     }
 
+    /// @dev    quorum is 4% of total supply, roughly ~520,000
     function _proposeAndNoQuorum(address migrationContract) internal {
         uint256 id = _submitProposal(migrationContract);
-        vm.prank(idleVoterTwo);
+        vm.prank(idleVoterTwo); // ~347,000
         IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
+
+        // voting ends once the voting period is over
+        vm.roll(block.number + idleVotingPeriod + 1);
+
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Defeated)
+        );
+
+        // expect the request to queue to be reverted
+        vm.expectRevert(
+            bytes(
+                "GovernorBravo::queue: proposal can only be queued if it is succeeded"
+            )
+        );
+        IGovernorBravo(idleGovernanceBravo).queue(id);
     }
 }
