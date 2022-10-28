@@ -147,12 +147,11 @@ contract Migration {
         // add the revenue contract
         // programs the function into the spigot which gets called when remove Spigot
         // the operator is the entity to whom the spigot is returned when loan is repaid
+        /// @dev abi.encodeWithSignature/selector gives the full calldata, not the fn selector
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100, // 100% to owner
-            _getSelector(
-                "withdraw(address _token, address _toAddress, uint256 _amount)"
-            ), // claim fn
-            _getSelector("replaceAdmin(address _newAdmin)") // transferOwnerFn // gets transferred to operator
+            _getSelector("withdraw(address,address,uint256)"), // claim fn
+            _getSelector("replaceAdmin(address)") // transferOwnerFn // gets transferred to operator
         );
 
         // add the spigot to the line

@@ -222,7 +222,7 @@ contract IdleMigrationTest is Test {
         // values[1] = 0;
 
         string[] memory signatures = new string[](1);
-        signatures[0] = "replaceAdmin(address _newAdmin)";
+        signatures[0] = "replaceAdmin(address)"; // "replaceAdmin(address _newAddress)" is wrong, don't include arg name, just hte type
         // signatures[1] = "migrate()";
 
         // TODO: the encoding could very well be RLP
