@@ -186,6 +186,9 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
+        // vm.prank(idleTimelock);
+        // IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
+
         // Simulate the governance process
         vm.startPrank(idleDeveloperLeagueMultisig);
         _submitProposalAndVoteToPass(address(migration));
@@ -210,22 +213,28 @@ contract IdleMigrationTest is Test {
         internal
         returns (uint256 id)
     {
-        address[] memory targets = new address[](2);
+        address[] memory targets = new address[](1);
         targets[0] = idleFeeCollector;
-        targets[1] = migrationContract;
+        // targets[1] = migrationContract;
 
-        uint256[] memory values = new uint256[](2);
+        uint256[] memory values = new uint256[](1);
         values[0] = 0;
-        values[1] = 0;
+        // values[1] = 0;
 
-        string[] memory signatures = new string[](2);
-        signatures[0] = "replaceAdmin(address _newAddress)";
-        signatures[1] = "migrate()";
+        string[] memory signatures = new string[](1);
+        signatures[0] = "replaceAdmin(address _newAdmin)";
+        // signatures[1] = "migrate()";
 
         // TODO: the encoding could very well be RLP
-        bytes[] memory calldatas = new bytes[](2);
-        calldatas[0] = abi.encode(migrationContract); // instead of using encodePacked which removes padding
-        calldatas[1] = abi.encode("");
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encode(migrationContract); // instead of using encodePacked which removes padding, calldata expects 32byte chunks
+        // calldatas[1] = abi.encode("");
+
+        emit log_named_address("target", targets[0]);
+        emit log_named_address("migration contract", migrationContract);
+        emit log_named_bytes("calldata", calldatas[0]);
+        emit log_named_string("signature", signatures[0]);
+        emit log_named_uint("value", values[0]);
 
         // vm.expectEmit(false, false, false, false);
         // emit ProposalCreated()
