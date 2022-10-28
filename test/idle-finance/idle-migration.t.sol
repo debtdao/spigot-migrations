@@ -132,6 +132,7 @@ contract IdleMigrationTest is Test {
             address(lineFactory),
             idleFeeCollector,
             idleTreasuryLeagueMultiSig,
+            idleTimelock,
             debtDaoDeployer,
             address(oracle),
             idleTreasuryLeagueMultiSig, // borrower
@@ -158,6 +159,7 @@ contract IdleMigrationTest is Test {
             address(lineFactory),
             idleFeeCollector,
             idleTreasuryLeagueMultiSig,
+            idleTimelock,
             debtDaoDeployer,
             address(oracle),
             idleTreasuryLeagueMultiSig, // borrower
@@ -180,6 +182,7 @@ contract IdleMigrationTest is Test {
             address(lineFactory),
             idleFeeCollector,
             idleTreasuryLeagueMultiSig,
+            idleTimelock,
             debtDaoDeployer,
             address(oracle),
             idleTreasuryLeagueMultiSig, // borrower
@@ -213,22 +216,22 @@ contract IdleMigrationTest is Test {
         internal
         returns (uint256 id)
     {
-        address[] memory targets = new address[](1);
+        address[] memory targets = new address[](2);
         targets[0] = idleFeeCollector;
-        // targets[1] = migrationContract;
+        targets[1] = migrationContract;
 
-        uint256[] memory values = new uint256[](1);
+        uint256[] memory values = new uint256[](2);
         values[0] = 0;
-        // values[1] = 0;
+        values[1] = 0;
 
-        string[] memory signatures = new string[](1);
+        string[] memory signatures = new string[](2);
         signatures[0] = "replaceAdmin(address)"; // "replaceAdmin(address _newAddress)" is wrong, don't include arg name, just hte type
-        // signatures[1] = "migrate()";
+        signatures[1] = "migrate()";
 
         // TODO: the encoding could very well be RLP
-        bytes[] memory calldatas = new bytes[](1);
+        bytes[] memory calldatas = new bytes[](2);
         calldatas[0] = abi.encode(migrationContract); // instead of using encodePacked which removes padding, calldata expects 32byte chunks
-        // calldatas[1] = abi.encode("");
+        calldatas[1] = abi.encode("");
 
         emit log_named_address("target", targets[0]);
         emit log_named_address("migration contract", migrationContract);
@@ -279,7 +282,9 @@ contract IdleMigrationTest is Test {
         IGovernorBravo(idleGovernanceBravo).execute(id);
 
         assert(
-            IFeeCollector(idleFeeCollector).isAddressAdmin(migrationContract)
+            IFeeCollector(idleFeeCollector).isAddressAdmin(
+                Migration(migrationContract).spigot()
+            )
         );
     }
 }

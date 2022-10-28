@@ -49,9 +49,10 @@ contract Migration {
     // Idle
     address private immutable feeCollector;
     address private immutable idleTreasuryMultisig;
+    address private immutable idleTimelock;
 
     // migration
-    address immutable spigot;
+    address public immutable spigot;
     address immutable escrow;
     address immutable securedLine;
 
@@ -75,6 +76,7 @@ contract Migration {
         address lineFactory_,
         address revenueContract_,
         address idleTreasuryMultisig_,
+        address timelock_,
         address debtDaoDeployer_,
         address oracle_,
         address borrower_,
@@ -85,6 +87,7 @@ contract Migration {
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
         idleTreasuryMultisig = idleTreasuryMultisig_;
+        idleTimelock = timelock_;
         oracle = oracle_;
 
         // deploy spigot
@@ -136,7 +139,7 @@ contract Migration {
         3   20%     Staking
 
     */
-    function migrate() external onlyOwner {
+    function migrate() external onlyAuthorized {
         if (!IFeeCollector(feeCollector).isAddressAdmin(address(this))) {
             revert NotFeeCollectorAdmin();
         }
@@ -201,7 +204,7 @@ contract Migration {
         emit MigrationComplete();
     }
 
-    function returnAdmin(address newAdmin_) external onlyOwner {
+    function returnAdmin(address newAdmin_) external onlyAuthorized {
         require(!migrationComplete, "Migration has been completed");
         IFeeCollector(feeCollector).replaceAdmin(newAdmin_);
     }
@@ -214,9 +217,12 @@ contract Migration {
 
     // ===================== Modifiers
 
-    modifier onlyOwner() {
+    modifier onlyAuthorized() {
         // TODO: improve error messages
-        require(msg.sender == owner, "Migration: Unauthorized");
+        require(
+            msg.sender == owner || msg.sender == idleTimelock,
+            "Migration: Unauthorized user"
+        );
         _;
     }
 }
