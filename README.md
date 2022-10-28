@@ -14,19 +14,18 @@ So, first run `forge install`, then
 
 This is reflected in the `remappings.txt`.
 
+## Testing
+
+We need to test against a fork of ethereum mainnet in order to interact with the deployed Idle Finance contracts.
+
+```
+forge test -vvvv
+```
+
 ## Structure
 
 The migration for each protocol is split into three separate files. `script` for deployment, `src` for the contract itself, and `test` for the tests that rely on an archived RPC node for testing against a fork of mainnet.
 
 ```
-root
-    |_script
-        |_<protocol>
-            |_deploy-<protocol>.s.sol
-    |_src
-        |_<protocol>
-            |_Migration.sol
-    |_test
-        |_<protocol>
-            |_<protocol>-migration.t.sol
+
 ```

@@ -60,4 +60,7 @@ bytecode_hash = 'ipfs'
 sparse_mode = false
 build_info = false
 
+[rpc_endpoints]
+mainnet_fork = "${ETH_RPC_URL}"
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

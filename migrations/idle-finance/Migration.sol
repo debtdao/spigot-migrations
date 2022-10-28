@@ -204,7 +204,7 @@ contract Migration {
         emit MigrationComplete();
     }
 
-    function returnAdmin(address newAdmin_) external onlyAuthorized {
+    function returnAdmin(address newAdmin_) external onlyOwner {
         require(!migrationComplete, "Migration has been completed");
         IFeeCollector(feeCollector).replaceAdmin(newAdmin_);
     }
@@ -217,12 +217,15 @@ contract Migration {
 
     // ===================== Modifiers
 
+    /// @dev    should only be callable by the timelock contract
     modifier onlyAuthorized() {
         // TODO: improve error messages
-        require(
-            msg.sender == owner || msg.sender == idleTimelock,
-            "Migration: Unauthorized user"
-        );
+        require(msg.sender == idleTimelock, "Migration: Unauthorized user");
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Migration: Not owner");
         _;
     }
 }

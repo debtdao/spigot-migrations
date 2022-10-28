@@ -96,7 +96,8 @@ contract IdleMigrationTest is Test {
 
     // $IDLE holders (voters)
     address idleCommunityMultisig = 0xb08696Efcf019A6128ED96067b55dD7D0aB23CE4; // 1,203,859 votes
-    address voter2 = makeAddr("voter2");
+    address idleVoterOne = 0x645090dc32eB0950D7C558515cFCDC63D5B4eA6c; // 654,386
+    address idleVoterTwo = 0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b; // 374,775
 
     // migration
     address idleSpigotAddress;
@@ -112,8 +113,6 @@ contract IdleMigrationTest is Test {
     constructor() {
         emit log_named_address("debtDaoDeployer", debtDaoDeployer);
 
-        ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"));
-
         vm.prank(debtDaoDeployer);
         oracle = new Oracle(chainlinkFeedRegistry);
         moduleFactory = new ModuleFactory();
@@ -126,7 +125,22 @@ contract IdleMigrationTest is Test {
         );
     }
 
+    function setUp() public {
+        ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"));
+        emit log_named_string("rpc", vm.envString("ETH_RPC_URL"));
+    }
+
+    // select a specific fork
+    function test_can_select_fork() public {
+        // select the fork
+        vm.selectFork(ethMainnetFork);
+        assertEq(vm.activeFork(), ethMainnetFork);
+    }
+
     function test_returning_admin_to_multisig() external {
+        // vm.selectFork(ethMainnetFork);
+        // assertEq(vm.activeFork(), ethMainnetFork);
+
         Migration migration = new Migration(
             address(moduleFactory),
             address(lineFactory),
@@ -154,6 +168,9 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migrate_when_not_admin() external {
+        // vm.selectFork(ethMainnetFork);
+        // assertEq(vm.activeFork(), ethMainnetFork);
+
         Migration migration = new Migration(
             address(moduleFactory),
             address(lineFactory),
@@ -171,11 +188,14 @@ contract IdleMigrationTest is Test {
         migration.migrate();
         vm.stopPrank();
 
-        vm.expectRevert(Migration.NotFeeCollectorAdmin.selector);
-        migration.migrate();
+        // vm.expectRevert(Migration.NotFeeCollectorAdmin.selector);
+        // migration.migrate();
     }
 
-    function test_migrateToSpigot() external {
+    function test_migration_vote_passed_and_migration_succeeds() external {
+        // vm.selectFork(ethMainnetFork);
+        // assertEq(vm.activeFork(), ethMainnetFork);
+
         // the migration contract deploys the line of credit, along with spigot and escrow
         Migration migration = new Migration(
             address(moduleFactory),
@@ -191,7 +211,26 @@ contract IdleMigrationTest is Test {
 
         // Simulate the governance process, which replaces the admin and performs the migration
         vm.startPrank(idleDeveloperLeagueMultisig);
-        _submitProposalAndVoteToPass(address(migration));
+        _proposeAndVoteToPass(address(migration));
+        vm.stopPrank();
+    }
+
+    function test_migration_vote_not_passed() external {
+        Migration migration = new Migration(
+            address(moduleFactory),
+            address(lineFactory),
+            idleFeeCollector,
+            idleTreasuryLeagueMultiSig,
+            idleTimelock,
+            debtDaoDeployer,
+            address(oracle),
+            idleTreasuryLeagueMultiSig, // borrower
+            90 days //ttl
+        );
+
+        // Simulate the governance process, which replaces the admin and performs the migration
+        vm.startPrank(idleDeveloperLeagueMultisig);
+        _proposeAndVoteToFail(address(migration));
         vm.stopPrank();
     }
 
@@ -199,7 +238,9 @@ contract IdleMigrationTest is Test {
         Quorum: 4% of the total IDLE supply (~520,000 IDLE) voting the pool
         Timeline: 3 days of voting
     */
-    function _submitProposalAndVoteToPass(address migrationContract)
+
+    // TODO: test sending without the replaceAdmin part of the proposal
+    function _submitProposal(address migrationContract)
         internal
         returns (uint256 id)
     {
@@ -215,7 +256,6 @@ contract IdleMigrationTest is Test {
         signatures[0] = "replaceAdmin(address)"; // "replaceAdmin(address _newAddress)" is wrong, don't include arg name, just hte type
         signatures[1] = "migrate()";
 
-        // TODO: the encoding could very well be RLP
         bytes[] memory calldatas = new bytes[](2);
         calldatas[0] = abi.encode(migrationContract); // instead of using encodePacked which removes padding, calldata expects 32byte chunks
         calldatas[1] = abi.encode("");
@@ -244,6 +284,12 @@ contract IdleMigrationTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    function _submitIncompleteProposal(address migrationContract) internal {}
+
+    function _proposeAndVoteToPass(address migrationContract) internal {
+        uint256 id = _submitProposal(migrationContract);
 
         vm.prank(idleCommunityMultisig);
         IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
@@ -272,5 +318,40 @@ contract IdleMigrationTest is Test {
                 Migration(migrationContract).spigot()
             )
         );
+    }
+
+    function _proposeAndVoteToFail(address migrationContract) internal {
+        uint256 id = _submitProposal(migrationContract);
+
+        vm.prank(idleVoterOne);
+        IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
+
+        vm.prank(idleVoterTwo);
+        IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
+
+        vm.prank(idleCommunityMultisig);
+        IGovernorBravo(idleGovernanceBravo).castVote(id, 0);
+
+        // voting ends once the voting period is over
+        vm.roll(block.number + idleVotingPeriod + 1);
+
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Defeated)
+        );
+
+        // expect the request to queue to be reverted
+        vm.expectRevert(
+            bytes(
+                "GovernorBravo::queue: proposal can only be queued if it is succeeded"
+            )
+        );
+        IGovernorBravo(idleGovernanceBravo).queue(id);
+    }
+
+    function _proposeAndNoQuorum(address migrationContract) internal {
+        uint256 id = _submitProposal(migrationContract);
+        vm.prank(idleVoterTwo);
+        IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
     }
 }
