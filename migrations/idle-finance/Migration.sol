@@ -53,8 +53,8 @@ contract Migration {
 
     // migration
     address public immutable spigot;
-    address immutable escrow;
-    address immutable securedLine;
+    address public immutable escrow;
+    address public immutable securedLine;
 
     bool migrationComplete;
 
@@ -162,6 +162,17 @@ contract Migration {
 
         // add a revenue stream
         ISpigot(spigot).addSpigot(feeCollector, spigotSettings);
+
+        // add address to whitelist fn
+        bytes4 addAddressSelector = _getSelector(
+            "addAddressToWhiteList(address)"
+        );
+        ISpigot(spigot).updateWhitelistedFunction(
+            addAddressSelector, // selector
+            true
+        );
+
+        assert(ISpigot(spigot).isWhitelisted(addAddressSelector));
 
         // transfer ownership of spigot and escrow to line
         // TODO: test these

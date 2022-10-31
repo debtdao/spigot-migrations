@@ -80,6 +80,8 @@ contract IdleMigrationTest is Test {
     // debt dao
     address debtDaoDeployer = makeAddr("debtDaoDeployer");
 
+    address dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+
     // Idle
     address idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
     address idleFeeTreasury = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
@@ -109,6 +111,8 @@ contract IdleMigrationTest is Test {
     uint256 revenueSplit = 100;
 
     uint256 ethMainnetFork;
+
+    event log_named_bytes4(string key, bytes4 value);
 
     constructor() {
         emit log_named_address("debtDaoDeployer", debtDaoDeployer);
@@ -213,6 +217,21 @@ contract IdleMigrationTest is Test {
         vm.startPrank(idleDeveloperLeagueMultisig);
         _proposeAndVoteToPass(address(migration));
         vm.stopPrank();
+
+        // Idle finance (operator) calls withdraw
+
+        // Test the spigot's `operate()` method.
+        _operatorAddAddress(migration.spigot());
+
+        // _claimRevenue();
+    }
+
+    // TODO: test that idle can't perform any admin functions
+
+    function test_chainlink_price_feed() external {
+        int256 daiPrice = oracle.getLatestAnswer(dai);
+        emit log_named_int("dai price", daiPrice);
+        assert(daiPrice > 0);
     }
 
     function test_migration_vote_not_passed() external {
@@ -258,7 +277,38 @@ contract IdleMigrationTest is Test {
         Timeline: 3 days of voting
     */
 
-    // TODO: test sending without the replaceAdmin part of the proposal
+    // function _claimRevenue(address _spigot) internal {
+    //     ISpigot(_spigot).claimRevenue(feeCollector, )
+    // }
+
+    function _operatorAddAddress(address _spigot) internal {
+        bytes4 addAddressSelector = _getSelector(
+            "addAddressToWhiteList(address)"
+        );
+
+        emit log_named_bytes4("add address selector", addAddressSelector);
+
+        bytes memory data = abi.encodeWithSignature(
+            "addAddressToWhiteList(address)",
+            debtDaoDeployer
+        );
+
+        emit log_named_bytes("add address calldata", data);
+
+        assertEq(addAddressSelector, bytes4(data));
+
+        require(
+            ISpigot(_spigot).isWhitelisted(bytes4(data)),
+            "Not Whitelisted"
+        );
+
+        // test the function that was whitelisted in the migration contract
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        assertEq(idleTreasuryLeagueMultiSig, ISpigot(_spigot).operator());
+        ISpigot(_spigot).operate(idleFeeCollector, data);
+        vm.stopPrank();
+    }
+
     function _submitProposal(address migrationContract)
         internal
         returns (uint256 id)
@@ -305,6 +355,7 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
+    // TODO: test sending without the replaceAdmin part of the proposal
     function _submitIncompleteProposal(address migrationContract) internal {}
 
     function _proposeAndVoteToPass(address migrationContract) internal {
@@ -389,5 +440,16 @@ contract IdleMigrationTest is Test {
             )
         );
         IGovernorBravo(idleGovernanceBravo).queue(id);
+    }
+
+    // ============= Utils
+
+    // returns the function selector (first 4 bytes) of the hashed signature
+    function _getSelector(string memory _signature)
+        internal
+        pure
+        returns (bytes4)
+    {
+        return bytes4(keccak256(bytes(_signature)));
     }
 }
