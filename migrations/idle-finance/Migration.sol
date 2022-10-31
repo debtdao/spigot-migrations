@@ -10,7 +10,6 @@ import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
-
 import {IModuleFactory} from "Line-of-Credit/interfaces/IModuleFactory.sol";
 import {SpigotedLine} from "Line-of-Credit/modules/credit/SpigotedLine.sol";
 import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
@@ -189,6 +188,7 @@ contract Migration {
         );
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
+        // TODO: test amounts claimed
         uint256[] memory newAllocations = new uint256[](4);
         newAllocations[0] = 0; // smart treasury
         newAllocations[1] = 70000; // spigot
@@ -201,9 +201,7 @@ contract Migration {
             newAllocations
         );
 
-        // transfer ownership to spigot
-        // TODO: can spigot call "replaceAdmin" on feeCollector?
-        // IFeeCollector(feeCollector).replaceAdmin(spigotAddress);
+        // transfer ownership (admin priviliges) to spigot
         IFeeCollector(feeCollector).replaceAdmin(spigot);
 
         // require spigot is admin on fee collector

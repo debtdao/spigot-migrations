@@ -14,18 +14,16 @@ So, first run `forge install`, then
 
 This is reflected in the `remappings.txt`.
 
+Next, create a `.env` file and add the `ETH_RPC_URL` for the archive node ( to enable forking ).
+
+```
+cp .env.sample .env
+```
+
 ## Testing
 
 We need to test against a fork of ethereum mainnet in order to interact with the deployed Idle Finance contracts.
 
 ```
-forge test -vvvv
-```
-
-## Structure
-
-The migration for each protocol is split into three separate files. `script` for deployment, `src` for the contract itself, and `test` for the tests that rely on an archived RPC node for testing against a fork of mainnet.
-
-```
-
+source .env && forge test --fork-url $ETH_RPC_URL -vvvv
 ```

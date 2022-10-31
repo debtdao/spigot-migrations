@@ -277,10 +277,9 @@ contract IdleMigrationTest is Test {
         Timeline: 3 days of voting
     */
 
-    // function _claimRevenue(address _spigot) internal {
-    //     ISpigot(_spigot).claimRevenue(feeCollector, )
-    // }
-
+    //
+    // ============= I N T E R N A L  F U N C T I O N S
+    //
     function _operatorAddAddress(address _spigot) internal {
         bytes4 addAddressSelector = _getSelector(
             "addAddressToWhiteList(address)"
@@ -442,7 +441,9 @@ contract IdleMigrationTest is Test {
         IGovernorBravo(idleGovernanceBravo).queue(id);
     }
 
-    // ============= Utils
+    //
+    // ============= U T I L S
+    //
 
     // returns the function selector (first 4 bytes) of the hashed signature
     function _getSelector(string memory _signature)
