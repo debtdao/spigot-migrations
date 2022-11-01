@@ -224,36 +224,25 @@ contract IdleMigrationTest is Test {
         // vm.selectFork(ethMainnetFork);
         // assertEq(vm.activeFork(), ethMainnetFork);
 
-        // the migration contract deploys the line of credit, along with spigot and escrow
-        Migration migration = new Migration(
-            address(moduleFactory),
-            address(lineFactory),
-            idleFeeCollector,
-            idleTreasuryLeagueMultiSig,
-            idleTimelock,
-            debtDaoDeployer,
-            address(oracle),
-            idleTreasuryLeagueMultiSig, // borrower
-            90 days //ttl
-        );
-
-        // _claimRevenue();
+        Migration migration = _deployMigrationContract();
 
         // Simulate the governance process, which replaces the admin and performs the migration
         vm.startPrank(idleDeveloperLeagueMultisig);
         _proposeAndVoteToPass(address(migration));
         vm.stopPrank();
 
-        // Idle finance (operator) calls withdraw
-
         // Test the spigot's `operate()` method.
         _operatorAddAddress(migration.spigot());
 
         // simulate the fee collector generating revenue
         uint256 _revenueGenerated = _simulateRevenueGeneration();
-        uint256 _expectedRevenue = (_revenueGenerated * 7000) / 10000;
-        // _simulateDeposit(migration.spigot());
-        _claimRevenueOnBehalfOfSpigot(migration.spigot(), _expectedRevenue);
+        uint256 _expectedRevenueDistribution = (_revenueGenerated * 7000) /
+            10000;
+
+        _claimRevenueOnBehalfOfSpigot(
+            migration.spigot(),
+            _expectedRevenueDistribution
+        );
     }
 
     // TODO: test that idle can't perform any admin functions
@@ -311,6 +300,21 @@ contract IdleMigrationTest is Test {
     //          I N T E R N A L   H E L P E R S          //
     ///////////////////////////////////////////////////////
 
+    function _deployMigrationContract() internal returns (Migration migration) {
+        // the migration contract deploys the line of credit, along with spigot and escrow
+        migration = new Migration(
+            address(moduleFactory),
+            address(lineFactory),
+            idleFeeCollector,
+            idleTreasuryLeagueMultiSig,
+            idleTimelock,
+            debtDaoDeployer,
+            address(oracle),
+            idleTreasuryLeagueMultiSig, // borrower
+            90 days //ttl
+        );
+    }
+
     function _simulateRevenueGeneration() internal returns (uint256 revenue) {
         vm.deal(idleFeeCollector, 5.5 ether);
 
@@ -357,7 +361,7 @@ contract IdleMigrationTest is Test {
 
         // All this is doing is triggering the fee collector (revenue contract)
         // to convert tokens to WETH and distribute to beneficiaries (which include spigot)
-        // TODO: do we pass "token" as weth
+        // TODO: do we pass "token" as weth, and does it matter?
         ISpigot(_spigot).claimRevenue(idleFeeCollector, weth, data);
 
         assertEq(_expectedRevenue, IERC20(weth).balanceOf(_spigot));
