@@ -230,9 +230,7 @@ contract IdleMigrationTest is Test {
         Migration migration = _deployMigrationContract();
 
         // Simulate the governance process, which replaces the admin and performs the migration
-        vm.startPrank(idleDeveloperLeagueMultisig);
         _proposeAndVoteToPass(address(migration));
-        vm.stopPrank();
 
         // Test the spigot's `operate()` method.
         _operatorAddAddress(migration.spigot());
@@ -251,24 +249,36 @@ contract IdleMigrationTest is Test {
     function test_migration_with_loan_and_repayment() external {
         Migration migration = _deployMigrationContract();
 
+        // Simulate the governance process, which replaces the admin and performs the migration
+        _proposeAndVoteToPass(address(migration));
+
         // borrower creates a line of credit
-        vm.prank(idleTreasuryLeagueMultiSig);
+        address borrower = ILineOfCredit(migration.securedLine()).borrower();
+        // assertEq())
+        emit log_named_address("borrower: ", borrower);
+        assertEq(borrower, idleTreasuryLeagueMultiSig);
+
+        uint256 loanAmount = 100000;
+        vm.startPrank(idleTreasuryLeagueMultiSig);
         bytes32 borrowerId = ILineOfCredit(migration.securedLine()).addCredit(
             1000, // drate
             1000, // frate
-            100000, // amount
+            loanAmount, // amount
             dai, // token
             daiWhale // lender
         );
+        vm.stopPrank();
 
-        vm.prank(daiWhale);
+        vm.startPrank(daiWhale);
+        IERC20(dai).approve(migration.securedLine(), loanAmount);
         bytes32 lenderId = ILineOfCredit(migration.securedLine()).addCredit(
             1000, // drate
             1000, // frate
-            100000, // amount
+            loanAmount, // amount
             dai, // token
             daiWhale // lender
         );
+        vm.stopPrank();
 
         // borrower accepts line of credit
 
@@ -533,6 +543,7 @@ contract IdleMigrationTest is Test {
     function _submitIncompleteProposal(address migrationContract) internal {}
 
     function _proposeAndVoteToPass(address migrationContract) internal {
+        vm.startPrank(idleDeveloperLeagueMultisig);
         uint256 id = _submitProposal(migrationContract);
 
         vm.prank(idleCommunityMultisig);
@@ -564,6 +575,7 @@ contract IdleMigrationTest is Test {
                 Migration(migrationContract).spigot()
             )
         );
+        vm.stopPrank();
     }
 
     function _proposeAndVoteToFail(address migrationContract) internal {

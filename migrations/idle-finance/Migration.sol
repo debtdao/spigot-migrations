@@ -60,6 +60,8 @@ contract Migration {
 
     bool migrationComplete;
 
+    event Status(LineLib.STATUS s);
+
     event MigrationComplete();
 
     error NotFeeCollectorAdmin();
@@ -120,10 +122,6 @@ contract Migration {
             spigot,
             escrow
         );
-
-        LineLib.STATUS status = ILineOfCredit(securedLine).init();
-
-        require(status == LineLib.STATUS.ACTIVE, "Migration: Line not active");
     }
 
     /*
@@ -191,6 +189,14 @@ contract Migration {
             IEscrow(escrow).line() == securedLine,
             "Migration: Escrow line transfer failed"
         );
+
+        LineLib.STATUS status = ILineOfCredit(securedLine).init();
+
+        LineLib.STATUS s = ILineOfCredit(securedLine).status();
+
+        emit Status(s);
+
+        require(status == LineLib.STATUS.ACTIVE, "Migration: Line not active");
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
         // TODO: test amounts claimed
