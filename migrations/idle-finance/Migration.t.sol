@@ -12,6 +12,7 @@ import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
+import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
 
 import {Migration} from "./Migration.sol";
 
@@ -120,6 +121,8 @@ contract IdleMigrationTest is Test {
     // idle deposit tokens
     address dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+    address daiWhale = 0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643;
 
     // migration
     address idleSpigotAddress;
@@ -243,6 +246,33 @@ contract IdleMigrationTest is Test {
             migration.spigot(),
             _expectedRevenueDistribution
         );
+    }
+
+    function test_migration_with_loan_and_repayment() external {
+        Migration migration = _deployMigrationContract();
+
+        // borrower creates a line of credit
+        vm.prank(idleTreasuryLeagueMultiSig);
+        bytes32 borrowerId = ILineOfCredit(migration.securedLine()).addCredit(
+            1000, // drate
+            1000, // frate
+            100000, // amount
+            dai, // token
+            daiWhale // lender
+        );
+
+        vm.prank(daiWhale);
+        bytes32 lenderId = ILineOfCredit(migration.securedLine()).addCredit(
+            1000, // drate
+            1000, // frate
+            100000, // amount
+            dai, // token
+            daiWhale // lender
+        );
+
+        // borrower accepts line of credit
+
+        //
     }
 
     // TODO: test that idle can't perform any admin functions
@@ -417,6 +447,7 @@ contract IdleMigrationTest is Test {
         // ISpigotedLine().claimAndRepay(weth, )
     }
 
+    // TODO: rename this and/or change the whitelisted fn
     function _operatorAddAddress(address _spigot) internal {
         bytes4 addAddressSelector = _getSelector(
             "addAddressToWhiteList(address)"

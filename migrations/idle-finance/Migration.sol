@@ -6,8 +6,9 @@ import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
 import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 import {ISecuredLine} from "Line-of-Credit/interfaces/ISecuredLine.sol";
 
+import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
-
+import {LineLib} from "Line-of-Credit/utils/LineLib.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
 import {IModuleFactory} from "Line-of-Credit/interfaces/IModuleFactory.sol";
@@ -114,15 +115,15 @@ contract Migration {
                 revenueSplit: 100 //uint8(revenueSplit)
             });
 
-        // lineOfCredit = ILineFactory(lineFactory_).deploySecuredLineWithConfig(
-        //     coreParams
-        // );
-
         securedLine = ILineFactory(lineFactory_).deploySecuredLineWithModules(
             coreParams,
             spigot,
             escrow
         );
+
+        LineLib.STATUS status = ILineOfCredit(securedLine).init();
+
+        require(status == LineLib.STATUS.ACTIVE, "Migration: Line not active");
     }
 
     /*
