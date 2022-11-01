@@ -29,6 +29,8 @@ interface IFeeCollector {
         address _newBeneficiary,
         uint256[] calldata _newAllocation
     ) external;
+
+    function addAddressToWhiteList(address _addressToAdd) external;
 }
 
 contract Migration {
@@ -152,17 +154,19 @@ contract Migration {
         /// @dev abi.encodeWithSignature/selector gives the full calldata, not the fn selector
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100, // 100% to owner
-            _getSelector("withdraw(address,address,uint256)"), // claim fn
+            _getSelector("deposit(bool[],uint256[],uint256)"), // claim fn
             _getSelector("replaceAdmin(address)") // transferOwnerFn // gets transferred to operator
         );
-
-        // add the spigot to the line
-        // ISpigotedLine(lineOfCredit).addSpigot(feeCollector, spigotSettings);
 
         // add a revenue stream
         ISpigot(spigot).addSpigot(feeCollector, spigotSettings);
 
-        // add address to whitelist fn
+        // we need to whitelist the spigot in order for it to call `deposit` via
+        // it's own `claimRevenue` fn
+        IFeeCollector(feeCollector).addAddressToWhiteList(spigot);
+
+        // TODO: we probably don't want to give them access to this
+        // add address to whitelist fn as a function the operator can call
         bytes4 addAddressSelector = _getSelector(
             "addAddressToWhiteList(address)"
         );

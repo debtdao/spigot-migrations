@@ -25,5 +25,5 @@ cp .env.sample .env
 We need to test against a fork of ethereum mainnet in order to interact with the deployed Idle Finance contracts.
 
 ```
-source .env && forge test --fork-url $ETH_RPC_URL -vvvv
+source .env && forge test --fork-url $ETH_RPC_URL --fork-block-number 15795856 -vvvv
 ```

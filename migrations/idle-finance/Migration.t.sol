@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "forge-std/Test.sol";
 import "ds-test/test.sol";
 
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
 import {Oracle} from "Line-of-Credit/modules/oracle/Oracle.sol";
 import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
@@ -20,6 +21,20 @@ interface IFeeCollector {
     function isAddressAdmin(address _address) external view returns (bool);
 
     function replaceAdmin(address _newAdmin) external;
+
+    function getDepositTokens() external view returns (address[] memory);
+
+    function deposit(
+        bool[] memory _depositTokensEnabled,
+        uint256[] memory _minTokenOut,
+        uint256 _minPoolAmountOut
+    ) external;
+
+    function getNumTokensInDepositList() external view returns (uint256);
+}
+
+interface IWeth {
+    function deposit() external payable;
 }
 
 interface IGovernorBravo {
@@ -80,8 +95,6 @@ contract IdleMigrationTest is Test {
     // debt dao
     address debtDaoDeployer = makeAddr("debtDaoDeployer");
 
-    address dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-
     // Idle
     address idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
     address idleFeeTreasury = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
@@ -91,15 +104,22 @@ contract IdleMigrationTest is Test {
         0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b; // Fee collector admin
     address idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
     address idleGovernanceBravo = 0x3D5Fc645320be0A085A32885F078F7121e5E5375;
+    address idleRebalancer = 0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B;
 
     uint256 idleVotingDelay = 1; // in blocks
     uint256 idleVotingPeriod = 17280; // in blocks
     uint256 idleTimelockDelay = 172800; // in seconds
 
+    mapping(address => uint256) idleDepositTokensToBalance;
+
     // $IDLE holders (voters)
     address idleCommunityMultisig = 0xb08696Efcf019A6128ED96067b55dD7D0aB23CE4; // 1,203,859 votes
     address idleVoterOne = 0x645090dc32eB0950D7C558515cFCDC63D5B4eA6c; // 654,386
     address idleVoterTwo = 0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b; // 374,775
+
+    // idle deposit tokens
+    address dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // migration
     address idleSpigotAddress;
@@ -133,6 +153,10 @@ contract IdleMigrationTest is Test {
         ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"));
         emit log_named_string("rpc", vm.envString("ETH_RPC_URL"));
     }
+
+    ///////////////////////////////////////////////////////
+    //                      T E S T S                    //
+    ///////////////////////////////////////////////////////
 
     // select a specific fork
     function test_can_select_fork() public {
@@ -213,6 +237,8 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
+        // _claimRevenue();
+
         // Simulate the governance process, which replaces the admin and performs the migration
         vm.startPrank(idleDeveloperLeagueMultisig);
         _proposeAndVoteToPass(address(migration));
@@ -223,7 +249,11 @@ contract IdleMigrationTest is Test {
         // Test the spigot's `operate()` method.
         _operatorAddAddress(migration.spigot());
 
-        // _claimRevenue();
+        // simulate the fee collector generating revenue
+        uint256 _revenueGenerated = _simulateRevenueGeneration();
+        uint256 _expectedRevenue = (_revenueGenerated * 7000) / 10000;
+        // _simulateDeposit(migration.spigot());
+        _claimRevenueOnBehalfOfSpigot(migration.spigot(), _expectedRevenue);
     }
 
     // TODO: test that idle can't perform any admin functions
@@ -277,9 +307,112 @@ contract IdleMigrationTest is Test {
         Timeline: 3 days of voting
     */
 
-    //
-    // ============= I N T E R N A L  F U N C T I O N S
-    //
+    ///////////////////////////////////////////////////////
+    //          I N T E R N A L   H E L P E R S          //
+    ///////////////////////////////////////////////////////
+
+    function _simulateRevenueGeneration() internal returns (uint256 revenue) {
+        vm.deal(idleFeeCollector, 5.5 ether);
+
+        vm.prank(idleFeeCollector);
+        revenue = 5 ether;
+        IWeth(weth).deposit{value: revenue}();
+
+        assertEq(IERC20(weth).balanceOf(idleFeeCollector), revenue);
+    }
+
+    function _claimRevenueOnBehalfOfSpigot(
+        address _spigot,
+        uint256 _expectedRevenue
+    ) internal {
+        /*
+            function deposit(
+                bool[] memory _depositTokensEnabled,
+                uint256[] memory _minTokenOut,
+                uint256 _minPoolAmountOut
+            ) external;
+        */
+        uint256 _depositTokensLength = IFeeCollector(idleFeeCollector)
+            .getNumTokensInDepositList();
+
+        bool[] memory _tokensEnabled = new bool[](_depositTokensLength);
+
+        uint256[] memory _minTokensOut = new uint256[](_depositTokensLength);
+
+        // we'll skip the swapping and just send the Weth in the contract,
+        // so all deposit tokens can be disabled
+        for (uint256 i; i < _tokensEnabled.length; ) {
+            _tokensEnabled[i] = false;
+            unchecked {
+                ++i;
+            }
+        }
+
+        bytes memory data = abi.encodeWithSelector(
+            IFeeCollector.deposit.selector,
+            _tokensEnabled,
+            _minTokensOut,
+            0
+        );
+
+        // All this is doing is triggering the fee collector (revenue contract)
+        // to convert tokens to WETH and distribute to beneficiaries (which include spigot)
+        // TODO: do we pass "token" as weth
+        ISpigot(_spigot).claimRevenue(idleFeeCollector, weth, data);
+
+        assertEq(_expectedRevenue, IERC20(weth).balanceOf(_spigot));
+    }
+
+    function _simulateDeposit(address _spigot) internal {
+        address[] memory feeCollectorDepositTokens = IFeeCollector(
+            idleFeeCollector
+        ).getDepositTokens();
+
+        vm.deal(idleFeeCollector, 5.5 ether);
+        vm.startPrank(idleFeeCollector);
+        IWeth(weth).deposit{value: 5 ether}();
+        assertEq(IERC20(weth).balanceOf(idleFeeCollector), 5 ether);
+        vm.stopPrank();
+
+        bool[] memory _tokensEnabled = new bool[](
+            feeCollectorDepositTokens.length
+        );
+
+        uint256[] memory _minTokensOut = new uint256[](
+            feeCollectorDepositTokens.length
+        );
+
+        // we'll skip the swapping and just send the Weth in the contract,
+        // so all deposit tokens can be disabled
+        for (uint256 i; i < _tokensEnabled.length; ) {
+            _tokensEnabled[i] = false;
+            _minTokensOut[i];
+            unchecked {
+                ++i;
+            }
+        }
+
+        vm.startPrank(idleRebalancer);
+        IFeeCollector(idleFeeCollector).deposit(
+            _tokensEnabled,
+            _minTokensOut,
+            0
+        );
+
+        assertEq(IERC20(weth).balanceOf(idleFeeCollector), 0);
+
+        uint256 _spigotWethBalance = IERC20(weth).balanceOf(_spigot);
+
+        // spigot balance should be 70% of the original balance
+        uint256 _percantageInBps = (5 ether * 7000) / 10000;
+        assertEq(_percantageInBps, _spigotWethBalance);
+    }
+
+    function _claimRevenue() internal {
+        // linelib.getBalance(token);
+        // ISpigotedLine().claimAndRepay(weth, )
+    }
+
     function _operatorAddAddress(address _spigot) internal {
         bytes4 addAddressSelector = _getSelector(
             "addAddressToWhiteList(address)"
@@ -307,6 +440,13 @@ contract IdleMigrationTest is Test {
         ISpigot(_spigot).operate(idleFeeCollector, data);
         vm.stopPrank();
     }
+
+    // note: this adds a lender and lends token (probably DAI / USDC)
+    // lender and borrower both have to call addCredit
+    // call claimAndRepay (after claimingRevenue from the spigot) // use the MockZeroX
+    // repay
+    // call depositAndClose();
+    function _addLenderAndLend() internal {}
 
     function _submitProposal(address migrationContract)
         internal
@@ -380,6 +520,8 @@ contract IdleMigrationTest is Test {
 
         // execute the tx, can only happen after timelock delay has passed
         vm.warp(block.timestamp + idleTimelockDelay);
+
+        // note: this will call `depositAllTokens()` internally and zero out the balances of all deposit tokens
         IGovernorBravo(idleGovernanceBravo).execute(id);
 
         assert(
@@ -441,9 +583,9 @@ contract IdleMigrationTest is Test {
         IGovernorBravo(idleGovernanceBravo).queue(id);
     }
 
-    //
-    // ============= U T I L S
-    //
+    ///////////////////////////////////////////////////////
+    //                      U T I L S                    //
+    ///////////////////////////////////////////////////////
 
     // returns the function selector (first 4 bytes) of the hashed signature
     function _getSelector(string memory _signature)
