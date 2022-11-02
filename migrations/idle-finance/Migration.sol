@@ -58,7 +58,8 @@ contract Migration {
     address public immutable escrow;
     address public immutable securedLine;
 
-    bool migrationComplete;
+    bool migrationSucceeded;
+    uint256 deployedAt;
 
     event Status(LineLib.STATUS s);
 
@@ -75,6 +76,7 @@ contract Migration {
     // TODO: add deadmans switch with timestamp + duration ( in case migration fails )
     // TODO: if the migration contract is still the owner of the spigot and escrow, and not owned by line
     // should be transferred back
+    // TODO: deadman's switch: return ownership to timelock if migration fails, transfer the spigot and escrow to multisig
     constructor(
         address moduleFactory_,
         address lineFactory_,
@@ -93,6 +95,8 @@ contract Migration {
         idleTreasuryMultisig = idleTreasuryMultisig_;
         idleTimelock = timelock_;
         oracle = oracle_;
+
+        deployedAt = block.timestamp;
 
         // deploy spigot
         spigot = IModuleFactory(moduleFactory_).deploySpigot(
@@ -124,28 +128,13 @@ contract Migration {
         );
     }
 
-    /*
-        Beneficiaries Before:
-        0   0x859E4D219E83204a2ea389DAc11048CC880B6AA8  0%      Smart Treasury
-        1   0x69a62C24F16d4914a48919613e8eE330641Bcb94  20%     Fee Treasury
-        2   0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B  30%     Rebalancer
-        3   0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3  50%     Staking Fee Swapper
-
-
-        Beneficiaries After:
-        0   0%      Smart Treasury
-        1   70%     Spigot
-        2   10%     Rebalancer
-        3   20%     Staking
-
-    */
     function migrate() external onlyAuthorized {
         if (!IFeeCollector(feeCollector).isAddressAdmin(address(this))) {
             revert NotFeeCollectorAdmin();
         }
 
-        require(!migrationComplete, "Migration is complete");
-        migrationComplete = true;
+        require(!migrationSucceeded, "Migration is complete");
+        migrationSucceeded = true;
 
         // add the revenue contract
         // programs the function into the spigot which gets called when remove Spigot
@@ -192,10 +181,6 @@ contract Migration {
 
         LineLib.STATUS status = ILineOfCredit(securedLine).init();
 
-        LineLib.STATUS s = ILineOfCredit(securedLine).status();
-
-        emit Status(s);
-
         require(status == LineLib.STATUS.ACTIVE, "Migration: Line not active");
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
@@ -206,6 +191,22 @@ contract Migration {
         newAllocations[2] = 10000; // rebalancer
         newAllocations[3] = 20000; // staking
 
+        /*
+            notice: `replaceBeneficiariesAt` is replacing the Fee Treasury (at index 1) with the Spigot
+
+            Beneficiaries Before:
+            0   0x859E4D219E83204a2ea389DAc11048CC880B6AA8  0%      Smart Treasury
+            1   0x69a62C24F16d4914a48919613e8eE330641Bcb94  20%     Fee Treasury
+            2   0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B  30%     Rebalancer
+            3   0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3  50%     Staking Fee Swapper
+
+
+            Beneficiaries After:
+            0   0%      Smart Treasury
+            1   70%     Spigot
+            2   10%     Rebalancer
+            3   20%     Staking
+        */
         IFeeCollector(feeCollector).replaceBeneficiaryAt(
             1,
             spigot, // spgiot address
@@ -224,8 +225,13 @@ contract Migration {
         emit MigrationComplete();
     }
 
+    // TODO: test this
     function returnAdmin(address newAdmin_) external onlyOwner {
-        require(!migrationComplete, "Migration has been completed");
+        require(!migrationSucceeded, "Migration has not been completed");
+        require(
+            block.timestamp > deployedAt + 30 days,
+            "Cooldown still active"
+        );
         IFeeCollector(feeCollector).replaceAdmin(newAdmin_);
     }
 

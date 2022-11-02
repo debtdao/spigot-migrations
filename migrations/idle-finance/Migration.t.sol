@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import "forge-std/Test.sol";
-import "ds-test/test.sol";
 
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
@@ -10,7 +9,11 @@ import {Oracle} from "Line-of-Credit/modules/oracle/Oracle.sol";
 import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
+import {LineOfCredit} from "Line-of-Credit/modules/credit/LineOfCredit.sol";
 
+import {SpigotedLine} from "Line-of-Credit/modules/credit/SpigotedLine.sol";
+
+import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 import {ZeroEx} from "Line-of-Credit/mock/ZeroEx.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
@@ -262,30 +265,26 @@ contract IdleMigrationTest is Test {
 
     function test_migration_with_loan_and_repayment() external {
         Migration migration = _deployMigrationContract();
+        SpigotedLine line = SpigotedLine(payable(migration.securedLine()));
+
+        // assertEq(uint256(1), uint256(2));
 
         // Simulate the governance process, which replaces the admin and performs the migration
         _proposeAndVoteToPass(address(migration));
 
+        // TODO: check feeCollector owner is spigot
+
         // TODO: should they transfer out
         bytes32 id = _lenderFundLoan(migration.securedLine());
 
-        uint256 _revenueGenerated = _simulateRevenueGeneration(150 ether);
-
-        // call claimRevenue
-        uint256 expected = (150 ether * 7000) / 10000;
-        _claimRevenueOnBehalfOfSpigot(migration.spigot(), expected);
-
-        uint256 claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
-        uint256 claimedDai = ISpigot(migration.spigot()).getEscrowed(dai);
-
-        emit log_named_uint("claimable WETH", claimedWeth);
-        emit log_named_uint("claimable DAI", claimedDai);
-
-        uint256 amountToBorrow = loanSizeInDai - 100;
+        uint256 amountToBorrow = loanSizeInDai;
 
         // borrow some of the available funds
         vm.startPrank(idleTreasuryLeagueMultiSig);
         ILineOfCredit(migration.securedLine()).borrow(id, amountToBorrow);
+
+        emit log_named_uint("unused weth", line.unused(weth));
+        emit log_named_uint("unused dai", line.unused(dai));
 
         uint256 borrowerDaiBalance = IERC20(dai).balanceOf(
             idleTreasuryLeagueMultiSig
@@ -294,18 +293,58 @@ contract IdleMigrationTest is Test {
 
         vm.stopPrank();
 
+        vm.warp(block.timestamp + 30 days);
+
+        (, uint256 principal, uint256 interest, uint256 repaid, , , ) = line
+            .credits(id);
+
+        emit log_named_uint("principal [before]", principal);
+        emit log_named_uint("interest [before]", interest);
+        emit log_named_uint("repaid [before]", repaid);
+
+        uint256 _revenueGenerated = _simulateRevenueGeneration(10e16);
+
+        // call claimRevenue
+        uint256 expected = (10e12 * 7000) / 10000;
+        _claimRevenueOnBehalfOfSpigot(migration.spigot(), expected);
+
+        uint256 claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
+        uint256 claimedDai = ISpigot(migration.spigot()).getEscrowed(dai);
+
+        emit log_named_uint("claimable WETH", claimedWeth);
+        emit log_named_uint("claimable DAI", claimedDai);
+
         // MockZeroX call to trade WETH to DAI
         bytes memory data = _generateTradeData(
             migration.spigot(),
-            amountToBorrow
+            amountToBorrow * 2
         );
 
         vm.startPrank(idleTreasuryLeagueMultiSig);
-
         // this calls getEscrowed (claims escrow for owner)
         ISpigotedLine(migration.securedLine()).claimAndRepay(weth, data);
+        vm.stopPrank();
+        (, principal, interest, repaid, , , ) = line.credits(id);
+
+        emit log_named_uint("principal [after]", principal);
+        emit log_named_uint("interest [after]", interest);
+        emit log_named_uint("repaid [after]", repaid);
+
+        claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
+        claimedDai = ISpigot(migration.spigot()).getEscrowed(dai);
+
+        emit log_named_uint("claimable WETH", claimedWeth);
+        emit log_named_uint("claimable DAI", claimedDai);
 
         // lender withdraw on line of credit
+        vm.startPrank(daiWhale);
+        ILineOfCredit(migration.securedLine()).withdraw(id, repaid); // repaid + deposit
+        vm.stopPrank();
+
+        // principal on position must be zero to close
+        // call depositAndClose; (only borrower);
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        line.close(id);
     }
 
     // TODO: test that idle can't perform any admin functions
@@ -406,7 +445,7 @@ contract IdleMigrationTest is Test {
             weth, // revenue
             dai, // credit
             claimable,
-            repayment
+            repayment // min amount out
         );
 
         // make sure the dex has tokens to trade
