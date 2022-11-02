@@ -77,16 +77,8 @@ interface IGovernorBravo {
 
 contract IdleMigrationTest is Test {
     /*
-        1 - Deploy Spigot
-        2 - Deploy Migration
-        3 - Transfer ownership of spigot to migration
-
-        1. Deploy spigot and escrow from factory contract on their own, no secured line
-        1. Owner is IDLE Finance (or debtDaoDeployer) multisig
-        2. deploy SecuredLine with config using Spigot and escrow with IDLE as borrower
-        3. Deploy migration contract with spigot address, custom logic for idle integration, and completion checks
-        4. IDLE give call `[replaceAdmin` on FeeCollector](https://github.com/Idle-Finance/idle-smart-treasury/blob/56067fff948e33e4dd1050841683554caa8532a4/contracts/FeeCollector.sol#L491-L494) replacing multisig with Migration Contract migration contract DEFAULT_ADMIN_ROLE on Fee Collector
-        1. ***ASK:*** ***Might have to be an onchain proposal instead of multisig tx***
+        Quorum: 4% of the total IDLE supply (~520,000 IDLE) voting the pool
+        Timeline: 3 days of voting
     */
 
     bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
@@ -131,6 +123,7 @@ contract IdleMigrationTest is Test {
     address dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
+    // lender
     address daiWhale = 0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643;
 
     // migration
@@ -143,6 +136,7 @@ contract IdleMigrationTest is Test {
     uint256 revenueSplit = 100;
     uint256 loanSizeInDai = 10e6;
 
+    // fork settings
     uint256 ethMainnetFork;
 
     event log_named_bytes4(string key, bytes4 value);
@@ -396,11 +390,6 @@ contract IdleMigrationTest is Test {
         _proposeAndNoQuorum(address(migration));
     }
 
-    /*
-        Quorum: 4% of the total IDLE supply (~520,000 IDLE) voting the pool
-        Timeline: 3 days of voting
-    */
-
     ///////////////////////////////////////////////////////
     //          I N T E R N A L   H E L P E R S          //
     ///////////////////////////////////////////////////////
@@ -555,13 +544,6 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
-    // note: this adds a lender and lends token (probably DAI / USDC)
-    // lender and borrower both have to call addCredit
-    // call claimAndRepay (after claimingRevenue from the spigot) // use the MockZeroX
-    // repay
-    // call depositAndClose();
-    function _addLenderAndLend() internal {}
-
     function _submitIncompleteProposal(address migrationContract)
         internal
         returns (uint256 id)
@@ -708,7 +690,7 @@ contract IdleMigrationTest is Test {
         IGovernorBravo(idleGovernanceBravo).queue(id);
     }
 
-    /// @dev    quorum is 4% of total supply, roughly ~520,000
+    // note: quorum is 4% of total supply, roughly ~520,000 votes
     function _proposeAndNoQuorum(address migrationContract) internal {
         uint256 id = _submitProposal(migrationContract);
         vm.prank(idleVoterTwo); // ~347,000

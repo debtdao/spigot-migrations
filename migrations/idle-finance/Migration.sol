@@ -63,12 +63,6 @@ contract Migration {
     error NotFeeCollectorAdmin();
     error MigrationFailed();
 
-    // 0 - deploy spigot
-    // 1 - take owner ship of revenue contract from governance
-    // 2 - transfer ownership of revenue to spigot
-    // 3 - test revenue can be claimed
-    // TODO: determine which addresses to save
-    // TODO: add deadmans switch with timestamp + duration ( in case migration fails )
     // TODO: if the migration contract is still the owner of the spigot and escrow, and not owned by line
     // should be transferred back
     // TODO: deadman's switch: return ownership to timelock if migration fails, transfer the spigot and escrow to multisig
@@ -87,8 +81,7 @@ contract Migration {
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
         idleTimelock = timelock_;
-
-        deployedAt = block.timestamp;
+        q deployedAt = block.timestamp;
 
         // deploy spigot
         spigot = IModuleFactory(moduleFactory_).deploySpigot(
