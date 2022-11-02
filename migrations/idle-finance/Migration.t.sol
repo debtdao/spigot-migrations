@@ -10,6 +10,8 @@ import {Oracle} from "Line-of-Credit/modules/oracle/Oracle.sol";
 import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
+
+import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
@@ -236,7 +238,7 @@ contract IdleMigrationTest is Test {
         _operatorAddAddress(migration.spigot());
 
         // simulate the fee collector generating revenue
-        uint256 _revenueGenerated = _simulateRevenueGeneration();
+        uint256 _revenueGenerated = _simulateRevenueGeneration(5 ether);
         uint256 _expectedRevenueDistribution = (_revenueGenerated * 7000) /
             10000;
 
@@ -252,37 +254,14 @@ contract IdleMigrationTest is Test {
         // Simulate the governance process, which replaces the admin and performs the migration
         _proposeAndVoteToPass(address(migration));
 
-        // borrower creates a line of credit
-        address borrower = ILineOfCredit(migration.securedLine()).borrower();
-        // assertEq())
-        emit log_named_address("borrower: ", borrower);
-        assertEq(borrower, idleTreasuryLeagueMultiSig);
+        // TODO: should they transfer out
+        _lenderFundLoan(migration.securedLine());
 
-        uint256 loanAmount = 100000;
+        uint256 _revenueGenerated = _simulateRevenueGeneration(150 ether);
+
+        bytes memory data;
         vm.startPrank(idleTreasuryLeagueMultiSig);
-        bytes32 borrowerId = ILineOfCredit(migration.securedLine()).addCredit(
-            1000, // drate
-            1000, // frate
-            loanAmount, // amount
-            dai, // token
-            daiWhale // lender
-        );
-        vm.stopPrank();
-
-        vm.startPrank(daiWhale);
-        IERC20(dai).approve(migration.securedLine(), loanAmount);
-        bytes32 lenderId = ILineOfCredit(migration.securedLine()).addCredit(
-            1000, // drate
-            1000, // frate
-            loanAmount, // amount
-            dai, // token
-            daiWhale // lender
-        );
-        vm.stopPrank();
-
-        // borrower accepts line of credit
-
-        //
+        ISpigotedLine(migration.securedLine()).claimAndRepay(dai, data);
     }
 
     // TODO: test that idle can't perform any admin functions
@@ -340,6 +319,30 @@ contract IdleMigrationTest is Test {
     //          I N T E R N A L   H E L P E R S          //
     ///////////////////////////////////////////////////////
 
+    function _lenderFundLoan(address _lineOfCredit) internal {
+        uint256 loanAmount = 100000;
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        bytes32 borrowerId = ILineOfCredit(_lineOfCredit).addCredit(
+            1000, // drate
+            1000, // frate
+            loanAmount, // amount
+            dai, // token
+            daiWhale // lender
+        );
+        vm.stopPrank();
+
+        vm.startPrank(daiWhale);
+        IERC20(dai).approve(_lineOfCredit, loanAmount);
+        bytes32 lenderId = ILineOfCredit(_lineOfCredit).addCredit(
+            1000, // drate
+            1000, // frate
+            loanAmount, // amount
+            dai, // token
+            daiWhale // lender
+        );
+        vm.stopPrank();
+    }
+
     function _deployMigrationContract() internal returns (Migration migration) {
         // the migration contract deploys the line of credit, along with spigot and escrow
         migration = new Migration(
@@ -355,11 +358,14 @@ contract IdleMigrationTest is Test {
         );
     }
 
-    function _simulateRevenueGeneration() internal returns (uint256 revenue) {
-        vm.deal(idleFeeCollector, 5.5 ether);
+    function _simulateRevenueGeneration(uint256 amt)
+        internal
+        returns (uint256 revenue)
+    {
+        vm.deal(idleFeeCollector, amt + 0.5 ether); // add a bit to cover gas
 
         vm.prank(idleFeeCollector);
-        revenue = 5 ether;
+        revenue = amt;
         IWeth(weth).deposit{value: revenue}();
 
         assertEq(IERC20(weth).balanceOf(idleFeeCollector), revenue);
