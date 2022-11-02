@@ -193,22 +193,23 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
+        // incomplete proposal will transfer admin privileges, but won't call `migrate()`
         uint256 proposalId = _submitIncompleteProposal(address(migration));
         _voteAndPassProposal(proposalId, address(migration));
 
-        // vm.expectRevert("Cooldown still active");
-        // migration.recoverAdmin(idleTimelock);
+        assert(
+            IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
+        );
 
-        // assertTrue(
-        //     IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
-        // );
+        vm.expectRevert("Cooldown still active");
+        migration.recoverAdmin(idleTimelock);
 
-        // vm.warp(block.timestamp + 31 days);
-        // migration.recoverAdmin(idleTimelock);
+        vm.warp(block.timestamp + 31 days);
+        migration.recoverAdmin(idleTimelock);
 
-        // assertTrue(
-        //     IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock)
-        // );
+        assertTrue(
+            IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock)
+        );
     }
 
     function test_migrate_when_not_admin() external {
