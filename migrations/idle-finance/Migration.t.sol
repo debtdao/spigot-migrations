@@ -138,6 +138,7 @@ contract IdleMigrationTest is Test {
     uint256 ttl = 90 days;
     uint256 creditRatio = 0;
     uint256 revenueSplit = 100;
+    uint256 loanSizeInDai = 10e6;
 
     uint256 ethMainnetFork;
 
@@ -280,9 +281,11 @@ contract IdleMigrationTest is Test {
         emit log_named_uint("claimable WETH", claimedWeth);
         emit log_named_uint("claimable DAI", claimedDai);
 
+        uint256 amountToBorrow = loanSizeInDai - 100;
+
         // borrow some of the available funds
         vm.startPrank(idleTreasuryLeagueMultiSig);
-        ILineOfCredit(migration.securedLine()).borrow(id, 900 ether);
+        ILineOfCredit(migration.securedLine()).borrow(id, amountToBorrow);
 
         uint256 borrowerDaiBalance = IERC20(dai).balanceOf(
             idleTreasuryLeagueMultiSig
@@ -292,7 +295,10 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
 
         // MockZeroX call to trade WETH to DAI
-        bytes memory data = _generateTradeData(migration.spigot());
+        bytes memory data = _generateTradeData(
+            migration.spigot(),
+            amountToBorrow
+        );
 
         vm.startPrank(idleTreasuryLeagueMultiSig);
 
@@ -361,23 +367,22 @@ contract IdleMigrationTest is Test {
         internal
         returns (bytes32 id)
     {
-        uint256 loanAmount = 1000 ether;
         vm.startPrank(idleTreasuryLeagueMultiSig);
         ILineOfCredit(_lineOfCredit).addCredit(
             1000, // drate
             1000, // frate
-            loanAmount, // amount
+            loanSizeInDai, // amount
             dai, // token
             daiWhale // lender
         );
         vm.stopPrank();
 
         vm.startPrank(daiWhale);
-        IERC20(dai).approve(_lineOfCredit, loanAmount);
+        IERC20(dai).approve(_lineOfCredit, loanSizeInDai);
         id = ILineOfCredit(_lineOfCredit).addCredit(
             1000, // drate
             1000, // frate
-            loanAmount, // amount
+            loanSizeInDai, // amount
             dai, // token
             daiWhale // lender
         );
@@ -388,7 +393,7 @@ contract IdleMigrationTest is Test {
         emit log_named_bytes32("credit id", id);
     }
 
-    function _generateTradeData(address _spigot)
+    function _generateTradeData(address _spigot, uint256 repayment)
         internal
         returns (bytes memory tradeData)
     {
@@ -401,7 +406,7 @@ contract IdleMigrationTest is Test {
             weth, // revenue
             dai, // credit
             claimable,
-            1
+            repayment
         );
 
         // make sure the dex has tokens to trade
