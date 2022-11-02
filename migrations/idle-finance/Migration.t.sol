@@ -11,6 +11,7 @@ import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol"
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 
+import {ZeroEx} from "Line-of-Credit/mock/ZeroEx.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
@@ -90,6 +91,7 @@ contract IdleMigrationTest is Test {
     ModuleFactory moduleFactory;
     LineFactory lineFactory;
     Oracle oracle;
+    ZeroEx dex;
 
     // Oracle ( price feeds )
     address chainlinkFeedRegistry = 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf;
@@ -147,12 +149,13 @@ contract IdleMigrationTest is Test {
         vm.prank(debtDaoDeployer);
         oracle = new Oracle(chainlinkFeedRegistry);
         moduleFactory = new ModuleFactory();
+        dex = new ZeroEx();
 
         lineFactory = new LineFactory(
             address(moduleFactory), // module factory
             debtDaoDeployer, // arbiter
             address(oracle), // oracle
-            zeroExSwapTarget // swapTarget
+            address(dex) // zeroExSwapTarget // swapTarget
         );
     }
 
@@ -289,11 +292,14 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
 
         // MockZeroX call to trade WETH to DAI
-        bytes memory data;
+        bytes memory data = _generateTradeData(migration.spigot());
+
         vm.startPrank(idleTreasuryLeagueMultiSig);
 
         // this calls getEscrowed (claims escrow for owner)
-        ISpigotedLine(migration.securedLine()).claimAndRepay(dai, data);
+        ISpigotedLine(migration.securedLine()).claimAndRepay(weth, data);
+
+        // lender withdraw on line of credit
     }
 
     // TODO: test that idle can't perform any admin functions
@@ -380,6 +386,27 @@ contract IdleMigrationTest is Test {
         // goes from the line of credit to the borrowers address (once they've called borrow)
 
         emit log_named_bytes32("credit id", id);
+    }
+
+    function _generateTradeData(address _spigot)
+        internal
+        returns (bytes memory tradeData)
+    {
+        uint256 claimable = ISpigot(_spigot).getEscrowed(weth);
+
+        emit log_named_uint("Claimable WETH", claimable);
+
+        tradeData = abi.encodeWithSignature(
+            "trade(address,address,uint256,uint256)",
+            weth, // revenue
+            dai, // credit
+            claimable,
+            1
+        );
+
+        // make sure the dex has tokens to trade
+        deal(weth, address(dex), 10e18);
+        deal(dai, address(dex), 10e18);
     }
 
     function _deployMigrationContract() internal returns (Migration migration) {
