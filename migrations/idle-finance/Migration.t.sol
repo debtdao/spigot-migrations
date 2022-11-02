@@ -18,6 +18,8 @@ import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
 
 import {Migration} from "./Migration.sol";
 
+// TODO: test internal function with assertEQ failing
+
 interface IFeeCollector {
     function hasRole(bytes32 role, address account) external returns (bool);
 
@@ -155,7 +157,7 @@ contract IdleMigrationTest is Test {
     }
 
     function setUp() public {
-        ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"));
+        ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"), 15_795_856);
         emit log_named_string("rpc", vm.envString("ETH_RPC_URL"));
     }
 
@@ -168,11 +170,17 @@ contract IdleMigrationTest is Test {
         // select the fork
         vm.selectFork(ethMainnetFork);
         assertEq(vm.activeFork(), ethMainnetFork);
+        assertEq(block.number, 15_795_856);
     }
 
     function test_returning_admin_to_multisig() external {
         // vm.selectFork(ethMainnetFork);
         // assertEq(vm.activeFork(), ethMainnetFork);
+
+        // vm.selectFork(ethMainnetFork);
+
+        // assertEq(vm.activeFork(), ethMainnetFork);
+        // assertEq(block.number, 15_795_856);
 
         Migration migration = new Migration(
             address(moduleFactory),
@@ -255,23 +263,36 @@ contract IdleMigrationTest is Test {
         _proposeAndVoteToPass(address(migration));
 
         // TODO: should they transfer out
-        (bytes32 bId, bytes32 lId) = _lenderFundLoan(migration.securedLine());
-
-        // borrow some of the available funds
-        vm.startPrank(idleTreasuryLeagueMultiSig);
-        ILineOfCredit(migration.securedLine()).borrow(bId, 5 ether);
-        vm.stopPrank();
-
-        uint256 claimableWeth = ISpigot(migration.spigot()).getEscrowed(weth);
-        uint256 claimableDai = ISpigot(migration.spigot()).getEscrowed(dai);
-
-        emit log_named_uint("claimable WETH", claimableWeth);
-        emit log_named_uint("claimable DAI", claimableDai);
+        bytes32 id = _lenderFundLoan(migration.securedLine());
 
         uint256 _revenueGenerated = _simulateRevenueGeneration(150 ether);
 
+        // call claimRevenue
+        uint256 expected = (150 ether * 7000) / 10000;
+        _claimRevenueOnBehalfOfSpigot(migration.spigot(), expected);
+
+        uint256 claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
+        uint256 claimedDai = ISpigot(migration.spigot()).getEscrowed(dai);
+
+        emit log_named_uint("claimable WETH", claimedWeth);
+        emit log_named_uint("claimable DAI", claimedDai);
+
+        // borrow some of the available funds
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        ILineOfCredit(migration.securedLine()).borrow(id, 900 ether);
+
+        uint256 borrowerDaiBalance = IERC20(dai).balanceOf(
+            idleTreasuryLeagueMultiSig
+        );
+        emit log_named_uint("borrower dai balance", borrowerDaiBalance); //2500000000000000000
+
+        vm.stopPrank();
+
+        // MockZeroX call to trade WETH to DAI
         bytes memory data;
         vm.startPrank(idleTreasuryLeagueMultiSig);
+
+        // this calls getEscrowed (claims escrow for owner)
         ISpigotedLine(migration.securedLine()).claimAndRepay(dai, data);
     }
 
@@ -332,11 +353,11 @@ contract IdleMigrationTest is Test {
 
     function _lenderFundLoan(address _lineOfCredit)
         internal
-        returns (bytes32 borrowerId, bytes32 lenderId)
+        returns (bytes32 id)
     {
-        uint256 loanAmount = 10 ether;
+        uint256 loanAmount = 1000 ether;
         vm.startPrank(idleTreasuryLeagueMultiSig);
-        borrowerId = ILineOfCredit(_lineOfCredit).addCredit(
+        ILineOfCredit(_lineOfCredit).addCredit(
             1000, // drate
             1000, // frate
             loanAmount, // amount
@@ -347,7 +368,7 @@ contract IdleMigrationTest is Test {
 
         vm.startPrank(daiWhale);
         IERC20(dai).approve(_lineOfCredit, loanAmount);
-        lenderId = ILineOfCredit(_lineOfCredit).addCredit(
+        id = ILineOfCredit(_lineOfCredit).addCredit(
             1000, // drate
             1000, // frate
             loanAmount, // amount
@@ -356,8 +377,9 @@ contract IdleMigrationTest is Test {
         );
         vm.stopPrank();
 
-        assertEq(borrowerId, lenderId);
-        // assertEq(ISpigotedLine(_lineOfCredit).ids(0));
+        // goes from the line of credit to the borrowers address (once they've called borrow)
+
+        emit log_named_bytes32("credit id", id);
     }
 
     function _deployMigrationContract() internal returns (Migration migration) {
