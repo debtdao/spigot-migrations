@@ -305,7 +305,7 @@ contract IdleMigrationTest is Test {
         uint256 _revenueGenerated = _simulateRevenueGeneration(10e16);
 
         // call claimRevenue
-        uint256 expected = (10e12 * 7000) / 10000;
+        uint256 expected = (10e16 * 7000) / 10000;
         _claimRevenueOnBehalfOfSpigot(migration.spigot(), expected);
 
         uint256 claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
