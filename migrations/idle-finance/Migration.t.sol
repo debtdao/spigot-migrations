@@ -526,56 +526,6 @@ contract IdleMigrationTest is Test {
         assertEq(_expectedRevenue, IERC20(weth).balanceOf(_spigot));
     }
 
-    // function _simulateDeposit(address _spigot) internal {
-    //     address[] memory feeCollectorDepositTokens = IFeeCollector(
-    //         idleFeeCollector
-    //     ).getDepositTokens();
-
-    //     vm.deal(idleFeeCollector, 5.5 ether);
-    //     vm.startPrank(idleFeeCollector);
-    //     IWeth(weth).deposit{value: 5 ether}();
-    //     assertEq(IERC20(weth).balanceOf(idleFeeCollector), 5 ether);
-    //     vm.stopPrank();
-
-    //     bool[] memory _tokensEnabled = new bool[](
-    //         feeCollectorDepositTokens.length
-    //     );
-
-    //     uint256[] memory _minTokensOut = new uint256[](
-    //         feeCollectorDepositTokens.length
-    //     );
-
-    //     // we'll skip the swapping and just send the Weth in the contract,
-    //     // so all deposit tokens can be disabled
-    //     for (uint256 i; i < _tokensEnabled.length; ) {
-    //         _tokensEnabled[i] = false;
-    //         _minTokensOut[i];
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
-
-    //     vm.startPrank(idleRebalancer);
-    //     IFeeCollector(idleFeeCollector).deposit(
-    //         _tokensEnabled,
-    //         _minTokensOut,
-    //         0
-    //     );
-
-    //     assertEq(IERC20(weth).balanceOf(idleFeeCollector), 0);
-
-    //     uint256 _spigotWethBalance = IERC20(weth).balanceOf(_spigot);
-
-    //     // spigot balance should be 70% of the original balance
-    //     uint256 _percantageInBps = (5 ether * 7000) / 10000;
-    //     assertEq(_percantageInBps, _spigotWethBalance);
-    // }
-
-    function _claimRevenue() internal {
-        // linelib.getBalance(token);
-        // ISpigotedLine().claimAndRepay(weth, )
-    }
-
     // TODO: rename this and/or change the whitelisted fn
     function _operatorAddAddress(address _spigot) internal {
         bytes4 addAddressSelector = _getSelector(

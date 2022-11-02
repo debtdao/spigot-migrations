@@ -5,7 +5,6 @@ import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
 import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 import {ISecuredLine} from "Line-of-Credit/interfaces/ISecuredLine.sol";
-
 import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {LineLib} from "Line-of-Credit/utils/LineLib.sol";
@@ -15,7 +14,6 @@ import {IModuleFactory} from "Line-of-Credit/interfaces/IModuleFactory.sol";
 import {SpigotedLine} from "Line-of-Credit/modules/credit/SpigotedLine.sol";
 import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
-
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 
 interface IFeeCollector {
@@ -45,12 +43,9 @@ contract Migration {
 
     // debtdao
     address private immutable debtDaoDeployer;
-    address private immutable oracle;
-    address private immutable moduleFactory;
 
     // Idle
     address private immutable feeCollector;
-    address private immutable idleTreasuryMultisig;
     address private immutable idleTimelock;
 
     // migration
@@ -89,12 +84,9 @@ contract Migration {
         uint256 ttl_
     ) {
         owner = msg.sender; // presumably Idle Deployer
-        moduleFactory = moduleFactory_;
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
-        idleTreasuryMultisig = idleTreasuryMultisig_;
         idleTimelock = timelock_;
-        oracle = oracle_;
 
         deployedAt = block.timestamp;
 
