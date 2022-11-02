@@ -132,7 +132,6 @@ contract Migration {
         if (!IFeeCollector(feeCollector).isAddressAdmin(address(this))) {
             revert NotFeeCollectorAdmin();
         }
-
         require(!migrationSucceeded, "Migration is complete");
         migrationSucceeded = true;
 
@@ -185,6 +184,7 @@ contract Migration {
 
         // update the beneficiaries by replacing the Fee Treasury at index 1
         // TODO: test amounts claimed
+        // TODO: should probably do this programmatically, they could change this after deploying migration contrat
         uint256[] memory newAllocations = new uint256[](4);
         newAllocations[0] = 0; // smart treasury
         newAllocations[1] = 70000; // spigot
@@ -192,7 +192,8 @@ contract Migration {
         newAllocations[3] = 20000; // staking
 
         /*
-            notice: `replaceBeneficiariesAt` is replacing the Fee Treasury (at index 1) with the Spigot
+            notice: `replaceBeneficiariesAt` is replacing the Fee Treasury (at index 1) with the Spigot,
+                    and providing updated allocations
 
             Beneficiaries Before:
             0   0x859E4D219E83204a2ea389DAc11048CC880B6AA8  0%      Smart Treasury
@@ -226,13 +227,13 @@ contract Migration {
     }
 
     // TODO: test this
-    function returnAdmin(address newAdmin_) external onlyOwner {
+    function recoverAdmin(address newAdmin_) external {
         require(!migrationSucceeded, "Migration has not been completed");
         require(
             block.timestamp > deployedAt + 30 days,
             "Cooldown still active"
         );
-        IFeeCollector(feeCollector).replaceAdmin(newAdmin_);
+        IFeeCollector(feeCollector).replaceAdmin(idleTimelock);
     }
 
     // ===================== Internal

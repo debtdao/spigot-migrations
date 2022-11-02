@@ -180,15 +180,7 @@ contract IdleMigrationTest is Test {
         assertEq(block.number, 15_795_856);
     }
 
-    function test_returning_admin_to_multisig() external {
-        // vm.selectFork(ethMainnetFork);
-        // assertEq(vm.activeFork(), ethMainnetFork);
-
-        // vm.selectFork(ethMainnetFork);
-
-        // assertEq(vm.activeFork(), ethMainnetFork);
-        // assertEq(block.number, 15_795_856);
-
+    function test_returning_admin_to_timelock() external {
         Migration migration = new Migration(
             address(moduleFactory),
             address(lineFactory),
@@ -201,18 +193,22 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
-        vm.prank(idleTimelock);
-        IFeeCollector(idleFeeCollector).replaceAdmin(address(migration));
+        uint256 proposalId = _submitIncompleteProposal(address(migration));
+        _voteAndPassProposal(proposalId, address(migration));
 
-        assertTrue(
-            IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
-        );
+        // vm.expectRevert("Cooldown still active");
+        // migration.recoverAdmin(idleTimelock);
 
-        migration.returnAdmin(idleTimelock);
+        // assertTrue(
+        //     IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration))
+        // );
 
-        assertTrue(
-            IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock)
-        );
+        // vm.warp(block.timestamp + 31 days);
+        // migration.recoverAdmin(idleTimelock);
+
+        // assertTrue(
+        //     IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock)
+        // );
     }
 
     function test_migrate_when_not_admin() external {
@@ -247,7 +243,8 @@ contract IdleMigrationTest is Test {
         Migration migration = _deployMigrationContract();
 
         // Simulate the governance process, which replaces the admin and performs the migration
-        _proposeAndVoteToPass(address(migration));
+        uint256 proposalId = _submitProposal(address(migration));
+        _voteAndPassProposal(proposalId, address(migration));
 
         // Test the spigot's `operate()` method.
         _operatorAddAddress(migration.spigot());
@@ -270,7 +267,12 @@ contract IdleMigrationTest is Test {
         // assertEq(uint256(1), uint256(2));
 
         // Simulate the governance process, which replaces the admin and performs the migration
-        _proposeAndVoteToPass(address(migration));
+        uint256 proposalId = _submitProposal(address(migration));
+        _voteAndPassProposal(proposalId, address(migration));
+
+        assert(
+            IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot())
+        );
 
         // TODO: check feeCollector owner is spigot
 
@@ -302,10 +304,14 @@ contract IdleMigrationTest is Test {
         emit log_named_uint("interest [before]", interest);
         emit log_named_uint("repaid [before]", repaid);
 
-        uint256 _revenueGenerated = _simulateRevenueGeneration(10e16);
+        uint256 revenueToSimulate = 10e16;
+
+        uint256 _revenueGenerated = _simulateRevenueGeneration(
+            revenueToSimulate
+        );
 
         // call claimRevenue
-        uint256 expected = (10e16 * 7000) / 10000;
+        uint256 expected = (revenueToSimulate * 7000) / 10000;
         _claimRevenueOnBehalfOfSpigot(migration.spigot(), expected);
 
         uint256 claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
@@ -368,10 +374,8 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
-        // Simulate the governance process, which replaces the admin and performs the migration
-        vm.startPrank(idleDeveloperLeagueMultisig);
+        // governance
         _proposeAndVoteToFail(address(migration));
-        vm.stopPrank();
     }
 
     function test_migration_vote_but_no_quorum() external {
@@ -387,10 +391,8 @@ contract IdleMigrationTest is Test {
             90 days //ttl
         );
 
-        // Simulate the governance process, which replaces the admin and performs the migration
-        vm.startPrank(idleDeveloperLeagueMultisig);
+        // governance
         _proposeAndNoQuorum(address(migration));
-        vm.stopPrank();
     }
 
     /*
@@ -523,50 +525,50 @@ contract IdleMigrationTest is Test {
         assertEq(_expectedRevenue, IERC20(weth).balanceOf(_spigot));
     }
 
-    function _simulateDeposit(address _spigot) internal {
-        address[] memory feeCollectorDepositTokens = IFeeCollector(
-            idleFeeCollector
-        ).getDepositTokens();
+    // function _simulateDeposit(address _spigot) internal {
+    //     address[] memory feeCollectorDepositTokens = IFeeCollector(
+    //         idleFeeCollector
+    //     ).getDepositTokens();
 
-        vm.deal(idleFeeCollector, 5.5 ether);
-        vm.startPrank(idleFeeCollector);
-        IWeth(weth).deposit{value: 5 ether}();
-        assertEq(IERC20(weth).balanceOf(idleFeeCollector), 5 ether);
-        vm.stopPrank();
+    //     vm.deal(idleFeeCollector, 5.5 ether);
+    //     vm.startPrank(idleFeeCollector);
+    //     IWeth(weth).deposit{value: 5 ether}();
+    //     assertEq(IERC20(weth).balanceOf(idleFeeCollector), 5 ether);
+    //     vm.stopPrank();
 
-        bool[] memory _tokensEnabled = new bool[](
-            feeCollectorDepositTokens.length
-        );
+    //     bool[] memory _tokensEnabled = new bool[](
+    //         feeCollectorDepositTokens.length
+    //     );
 
-        uint256[] memory _minTokensOut = new uint256[](
-            feeCollectorDepositTokens.length
-        );
+    //     uint256[] memory _minTokensOut = new uint256[](
+    //         feeCollectorDepositTokens.length
+    //     );
 
-        // we'll skip the swapping and just send the Weth in the contract,
-        // so all deposit tokens can be disabled
-        for (uint256 i; i < _tokensEnabled.length; ) {
-            _tokensEnabled[i] = false;
-            _minTokensOut[i];
-            unchecked {
-                ++i;
-            }
-        }
+    //     // we'll skip the swapping and just send the Weth in the contract,
+    //     // so all deposit tokens can be disabled
+    //     for (uint256 i; i < _tokensEnabled.length; ) {
+    //         _tokensEnabled[i] = false;
+    //         _minTokensOut[i];
+    //         unchecked {
+    //             ++i;
+    //         }
+    //     }
 
-        vm.startPrank(idleRebalancer);
-        IFeeCollector(idleFeeCollector).deposit(
-            _tokensEnabled,
-            _minTokensOut,
-            0
-        );
+    //     vm.startPrank(idleRebalancer);
+    //     IFeeCollector(idleFeeCollector).deposit(
+    //         _tokensEnabled,
+    //         _minTokensOut,
+    //         0
+    //     );
 
-        assertEq(IERC20(weth).balanceOf(idleFeeCollector), 0);
+    //     assertEq(IERC20(weth).balanceOf(idleFeeCollector), 0);
 
-        uint256 _spigotWethBalance = IERC20(weth).balanceOf(_spigot);
+    //     uint256 _spigotWethBalance = IERC20(weth).balanceOf(_spigot);
 
-        // spigot balance should be 70% of the original balance
-        uint256 _percantageInBps = (5 ether * 7000) / 10000;
-        assertEq(_percantageInBps, _spigotWethBalance);
-    }
+    //     // spigot balance should be 70% of the original balance
+    //     uint256 _percantageInBps = (5 ether * 7000) / 10000;
+    //     assertEq(_percantageInBps, _spigotWethBalance);
+    // }
 
     function _claimRevenue() internal {
         // linelib.getBalance(token);
@@ -609,10 +611,51 @@ contract IdleMigrationTest is Test {
     // call depositAndClose();
     function _addLenderAndLend() internal {}
 
+    function _submitIncompleteProposal(address migrationContract)
+        internal
+        returns (uint256 id)
+    {
+        vm.startPrank(idleDeveloperLeagueMultisig);
+
+        address[] memory targets = new address[](1);
+        targets[0] = idleFeeCollector;
+
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+
+        string[] memory signatures = new string[](1);
+        signatures[0] = "replaceAdmin(address)"; // "replaceAdmin(address _newAddress)" is wrong, don't include arg name, just hte type
+
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encode(migrationContract); // instead of using encodePacked which removes padding, calldata expects 32byte chunks
+
+        id = IGovernorBravo(idleGovernanceBravo).propose(
+            targets,
+            values,
+            signatures,
+            calldatas,
+            "IIP-33: Allow DebtDAO migration contract to take admin control of the Fee Collector https://gov.idle.finance/t/debtdao-migration-for-loan/1056"
+        );
+
+        emit log_named_uint("proposal id: ", id);
+
+        // voting can only start after the delay
+        vm.roll(block.number + idleVotingDelay + 1);
+
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Active)
+        );
+
+        vm.stopPrank();
+    }
+
     function _submitProposal(address migrationContract)
         internal
         returns (uint256 id)
     {
+        vm.startPrank(idleDeveloperLeagueMultisig);
+
         address[] memory targets = new address[](2);
         targets[0] = idleFeeCollector;
         targets[1] = migrationContract;
@@ -655,13 +698,9 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
-    // TODO: test sending without the replaceAdmin part of the proposal
-    function _submitIncompleteProposal(address migrationContract) internal {}
-
-    function _proposeAndVoteToPass(address migrationContract) internal {
-        vm.startPrank(idleDeveloperLeagueMultisig);
-        uint256 id = _submitProposal(migrationContract);
-
+    function _voteAndPassProposal(uint256 id, address migrationContract)
+        internal
+    {
         vm.prank(idleCommunityMultisig);
         IGovernorBravo(idleGovernanceBravo).castVote(id, 1);
 
@@ -683,14 +722,9 @@ contract IdleMigrationTest is Test {
         // execute the tx, can only happen after timelock delay has passed
         vm.warp(block.timestamp + idleTimelockDelay);
 
-        // note: this will call `depositAllTokens()` internally and zero out the balances of all deposit tokens
+        // note: this will call `depositAllTokens()` internally and zero out the balances of all deposited tokens
         IGovernorBravo(idleGovernanceBravo).execute(id);
 
-        assert(
-            IFeeCollector(idleFeeCollector).isAddressAdmin(
-                Migration(migrationContract).spigot()
-            )
-        );
         vm.stopPrank();
     }
 
