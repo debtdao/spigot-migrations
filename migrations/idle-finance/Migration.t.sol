@@ -255,7 +255,18 @@ contract IdleMigrationTest is Test {
         _proposeAndVoteToPass(address(migration));
 
         // TODO: should they transfer out
-        _lenderFundLoan(migration.securedLine());
+        (bytes32 bId, bytes32 lId) = _lenderFundLoan(migration.securedLine());
+
+        // borrow some of the available funds
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        ILineOfCredit(migration.securedLine()).borrow(bId, 5 ether);
+        vm.stopPrank();
+
+        uint256 claimableWeth = ISpigot(migration.spigot()).getEscrowed(weth);
+        uint256 claimableDai = ISpigot(migration.spigot()).getEscrowed(dai);
+
+        emit log_named_uint("claimable WETH", claimableWeth);
+        emit log_named_uint("claimable DAI", claimableDai);
 
         uint256 _revenueGenerated = _simulateRevenueGeneration(150 ether);
 
@@ -319,10 +330,13 @@ contract IdleMigrationTest is Test {
     //          I N T E R N A L   H E L P E R S          //
     ///////////////////////////////////////////////////////
 
-    function _lenderFundLoan(address _lineOfCredit) internal {
-        uint256 loanAmount = 100000;
+    function _lenderFundLoan(address _lineOfCredit)
+        internal
+        returns (bytes32 borrowerId, bytes32 lenderId)
+    {
+        uint256 loanAmount = 10 ether;
         vm.startPrank(idleTreasuryLeagueMultiSig);
-        bytes32 borrowerId = ILineOfCredit(_lineOfCredit).addCredit(
+        borrowerId = ILineOfCredit(_lineOfCredit).addCredit(
             1000, // drate
             1000, // frate
             loanAmount, // amount
@@ -333,7 +347,7 @@ contract IdleMigrationTest is Test {
 
         vm.startPrank(daiWhale);
         IERC20(dai).approve(_lineOfCredit, loanAmount);
-        bytes32 lenderId = ILineOfCredit(_lineOfCredit).addCredit(
+        lenderId = ILineOfCredit(_lineOfCredit).addCredit(
             1000, // drate
             1000, // frate
             loanAmount, // amount
@@ -341,6 +355,9 @@ contract IdleMigrationTest is Test {
             daiWhale // lender
         );
         vm.stopPrank();
+
+        assertEq(borrowerId, lenderId);
+        // assertEq(ISpigotedLine(_lineOfCredit).ids(0));
     }
 
     function _deployMigrationContract() internal returns (Migration migration) {
