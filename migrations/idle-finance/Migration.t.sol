@@ -259,8 +259,6 @@ contract IdleMigrationTest is Test {
         Migration migration = _deployMigrationContract();
         SpigotedLine line = SpigotedLine(payable(migration.securedLine()));
 
-        // assertEq(uint256(1), uint256(2));
-
         // Simulate the governance process, which replaces the admin and performs the migration
         uint256 proposalId = _submitProposal(address(migration));
         _voteAndPassProposal(proposalId, address(migration));
@@ -268,8 +266,6 @@ contract IdleMigrationTest is Test {
         assert(
             IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot())
         );
-
-        // TODO: check feeCollector owner is spigot
 
         // TODO: should they transfer out
         bytes32 id = _lenderFundLoan(migration.securedLine());
@@ -280,13 +276,9 @@ contract IdleMigrationTest is Test {
         vm.startPrank(idleTreasuryLeagueMultiSig);
         ILineOfCredit(migration.securedLine()).borrow(id, amountToBorrow);
 
-        emit log_named_uint("unused weth", line.unused(weth));
-        emit log_named_uint("unused dai", line.unused(dai));
-
         uint256 borrowerDaiBalance = IERC20(dai).balanceOf(
             idleTreasuryLeagueMultiSig
         );
-        emit log_named_uint("borrower dai balance", borrowerDaiBalance); //2500000000000000000
 
         vm.stopPrank();
 
@@ -309,12 +301,6 @@ contract IdleMigrationTest is Test {
         uint256 expected = (revenueToSimulate * 7000) / 10000;
         _claimRevenueOnBehalfOfSpigot(migration.spigot(), expected);
 
-        uint256 claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
-        uint256 claimedDai = ISpigot(migration.spigot()).getEscrowed(dai);
-
-        emit log_named_uint("claimable WETH", claimedWeth);
-        emit log_named_uint("claimable DAI", claimedDai);
-
         // MockZeroX call to trade WETH to DAI
         bytes memory data = _generateTradeData(
             migration.spigot(),
@@ -330,12 +316,6 @@ contract IdleMigrationTest is Test {
         emit log_named_uint("principal [after]", principal);
         emit log_named_uint("interest [after]", interest);
         emit log_named_uint("repaid [after]", repaid);
-
-        claimedWeth = ISpigot(migration.spigot()).getEscrowed(weth);
-        claimedDai = ISpigot(migration.spigot()).getEscrowed(dai);
-
-        emit log_named_uint("claimable WETH", claimedWeth);
-        emit log_named_uint("claimable DAI", claimedDai);
 
         // lender withdraw on line of credit
         vm.startPrank(daiWhale);

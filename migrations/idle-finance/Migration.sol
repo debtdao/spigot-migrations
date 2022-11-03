@@ -81,7 +81,7 @@ contract Migration {
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
         idleTimelock = timelock_;
-        q deployedAt = block.timestamp;
+        deployedAt = block.timestamp;
 
         // deploy spigot
         spigot = IModuleFactory(moduleFactory_).deploySpigot(
