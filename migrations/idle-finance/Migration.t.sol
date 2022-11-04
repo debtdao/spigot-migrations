@@ -232,9 +232,6 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migration_vote_passed_and_migration_succeeds() external {
-        // vm.selectFork(ethMainnetFork);
-        // assertEq(vm.activeFork(), ethMainnetFork);
-
         Migration migration = _deployMigrationContract();
 
         // Simulate the governance process, which replaces the admin and performs the migration

@@ -149,7 +149,7 @@ contract Migration {
         /// @dev abi.encodeWithSignature/selector gives the full calldata, not the fn selector
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100, // 100% to owner
-            _getSelector("deposit(bool[],uint256[],uint256)"), // claim fn
+            _getSelector("deposit(bool[],uint256[],uint256)"), // claim fn // TODO: change to bytes("") so its only a push payment
             _getSelector("replaceAdmin(address)") // transferOwnerFn // gets transferred to operator
         );
 
@@ -160,6 +160,7 @@ contract Migration {
         // it's own `claimRevenue` fn
         IFeeCollector(feeCollector).addAddressToWhiteList(spigot);
 
+        // TODO: idle finance is in charge of making trades (they can call deposit as operator)
         // TODO: we probably don't want to give them access to this
         // add address to whitelist fn as a function the operator can call
         bytes4 addAddressSelector = _getSelector(
@@ -208,6 +209,7 @@ contract Migration {
     }
 
     // TODO: test this
+    // TODO: this could fail if an existing benficiary is at the wrong index and it tries to add a duplicate
 
     /// @dev This function is a safeguard against the protocol switching beneficiaries
     ///      or changing allocations between the deployment of the migration contract and the migration
