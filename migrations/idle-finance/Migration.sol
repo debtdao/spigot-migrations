@@ -39,7 +39,10 @@ interface IFeeCollector {
 }
 
 contract IdleMigration {
+    // interfaces
     IFeeCollector iFeeCollector;
+    ISpigot iSpigot;
+
     // admin
     bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
     address private immutable owner;
@@ -118,6 +121,8 @@ contract IdleMigration {
             idleTreasuryMultisig_ // operator - Treasury Multisig
         );
 
+        iSpigot = ISpigot(spigot);
+
         // deploy escrow
         escrow = IModuleFactory(moduleFactory_).deployEscrow(
             0, // min credit ratio
@@ -159,7 +164,7 @@ contract IdleMigration {
         );
 
         // add a revenue stream
-        ISpigot(spigot).addSpigot(feeCollector, spigotSettings);
+        iSpigot.addSpigot(feeCollector, spigotSettings);
 
         // we need to whitelist the spigot in order for it to call `deposit` via
         // it's own `claimRevenue` fn
@@ -171,23 +176,23 @@ contract IdleMigration {
         bytes4 addAddressSelector = _getSelector(
             "addAddressToWhiteList(address)"
         );
-        ISpigot(spigot).updateWhitelistedFunction(
+        iSpigot.updateWhitelistedFunction(
             addAddressSelector, // selector
             true
         );
 
         require(
-            ISpigot(spigot).isWhitelisted(addAddressSelector),
+            iSpigot.isWhitelisted(addAddressSelector),
             "Migration: add address not whitelisted"
         );
 
         // transfer ownership of spigot and escrow to line
         // TODO: test these
-        ISpigot(spigot).updateOwner(securedLine);
+        iSpigot.updateOwner(securedLine);
         IEscrow(escrow).updateLine(securedLine);
 
         require(
-            ISpigot(spigot).owner() == securedLine,
+            iSpigot.owner() == securedLine,
             "Migration: Spigot owner transfer failed"
         );
         require(
