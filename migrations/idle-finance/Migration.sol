@@ -30,6 +30,10 @@ interface IFeeCollector {
     ) external;
 
     function addAddressToWhiteList(address _addressToAdd) external;
+
+    function getBeneficiaries() external view returns (address[] memory);
+
+    function setSmartTreasuryAddress(address _smartTreasuryAddress) external;
 }
 
 contract Migration {
@@ -48,6 +52,16 @@ contract Migration {
     address private immutable feeCollector;
     address private immutable idleTimelock;
 
+    // TODO: confirm these
+    address private constant idleSmartTreasury =
+        0x859E4D219E83204a2ea389DAc11048CC880B6AA8;
+    address private constant idleFeeTreausry =
+        0x69a62C24F16d4914a48919613e8eE330641Bcb94;
+    address private constant idleRebalancer =
+        0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B;
+    address private constant idleStakingFeeSwapper =
+        0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3;
+
     // migration
     address public immutable spigot;
     address public immutable escrow;
@@ -59,6 +73,15 @@ contract Migration {
     event Status(LineLib.STATUS s);
 
     event MigrationComplete();
+    event ReplacedBeneficiary(
+        uint256 index,
+        address contractAddress,
+        uint256 allocation
+    );
+
+    event log_named_uint(string key, uint256 val);
+    event log_named_string(string key, string val);
+    event log_named_address(string key, address val);
 
     error NotFeeCollectorAdmin();
     error MigrationFailed();
@@ -81,7 +104,7 @@ contract Migration {
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
         idleTimelock = timelock_;
-        q deployedAt = block.timestamp;
+        deployedAt = block.timestamp;
 
         // deploy spigot
         spigot = IModuleFactory(moduleFactory_).deploySpigot(
@@ -126,7 +149,7 @@ contract Migration {
         /// @dev abi.encodeWithSignature/selector gives the full calldata, not the fn selector
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100, // 100% to owner
-            _getSelector("deposit(bool[],uint256[],uint256)"), // claim fn
+            _getSelector("deposit(bool[],uint256[],uint256)"), // claim fn // TODO: change to bytes("") so its only a push payment
             _getSelector("replaceAdmin(address)") // transferOwnerFn // gets transferred to operator
         );
 
@@ -137,6 +160,7 @@ contract Migration {
         // it's own `claimRevenue` fn
         IFeeCollector(feeCollector).addAddressToWhiteList(spigot);
 
+        // TODO: idle finance is in charge of making trades (they can call deposit as operator)
         // TODO: we probably don't want to give them access to this
         // add address to whitelist fn as a function the operator can call
         bytes4 addAddressSelector = _getSelector(
@@ -147,7 +171,10 @@ contract Migration {
             true
         );
 
-        assert(ISpigot(spigot).isWhitelisted(addAddressSelector));
+        require(
+            ISpigot(spigot).isWhitelisted(addAddressSelector),
+            "Migration: add address not whitelisted"
+        );
 
         // transfer ownership of spigot and escrow to line
         // TODO: test these
@@ -167,37 +194,7 @@ contract Migration {
 
         require(status == LineLib.STATUS.ACTIVE, "Migration: Line not active");
 
-        // update the beneficiaries by replacing the Fee Treasury at index 1
-        // TODO: test amounts claimed
-        // TODO: should probably do this programmatically, they could change this after deploying migration contrat
-        uint256[] memory newAllocations = new uint256[](4);
-        newAllocations[0] = 0; // smart treasury
-        newAllocations[1] = 70000; // spigot
-        newAllocations[2] = 10000; // rebalancer
-        newAllocations[3] = 20000; // staking
-
-        /*
-            notice: `replaceBeneficiariesAt` is replacing the Fee Treasury (at index 1) with the Spigot,
-                    and providing updated allocations
-
-            Beneficiaries Before:
-            0   0x859E4D219E83204a2ea389DAc11048CC880B6AA8  0%      Smart Treasury
-            1   0x69a62C24F16d4914a48919613e8eE330641Bcb94  20%     Fee Treasury
-            2   0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B  30%     Rebalancer
-            3   0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3  50%     Staking Fee Swapper
-
-
-            Beneficiaries After:
-            0   0%      Smart Treasury
-            1   70%     Spigot
-            2   10%     Rebalancer
-            3   20%     Staking
-        */
-        IFeeCollector(feeCollector).replaceBeneficiaryAt(
-            1,
-            spigot, // spgiot address
-            newAllocations
-        );
+        _setBeneficiariesAndAllocations();
 
         // transfer ownership (admin priviliges) to spigot
         IFeeCollector(feeCollector).replaceAdmin(spigot);
@@ -212,6 +209,84 @@ contract Migration {
     }
 
     // TODO: test this
+    // TODO: this could fail if an existing benficiary is at the wrong index and it tries to add a duplicate
+
+    /// @dev This function is a safeguard against the protocol switching beneficiaries
+    ///      or changing allocations between the deployment of the migration contract and the migration
+    function _setBeneficiariesAndAllocations() internal {
+        /*
+            note: this is for reference, remove before deploying 
+
+            Beneficiaries Before:
+            0   0x859E4D219E83204a2ea389DAc11048CC880B6AA8  0%      Smart Treasury
+            1   0x69a62C24F16d4914a48919613e8eE330641Bcb94  20%     Fee Treasury
+            2   0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B  30%     Rebalancer
+            3   0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3  50%     Staking Fee Swapper
+
+
+            Beneficiaries After:
+            0   0%      Smart Treasury
+            1   70%     Spigot
+            2   10%     Rebalancer
+            3   20%     Staking
+        */
+        address[] memory existingBeneficiaries = IFeeCollector(feeCollector)
+            .getBeneficiaries();
+
+        uint256[] memory newAllocations = new uint256[](
+            existingBeneficiaries.length
+        );
+
+        newAllocations[0] = 0; // smart treasury
+        newAllocations[1] = 70000; // spigot
+        newAllocations[2] = 10000; // rebalancer
+        newAllocations[3] = 20000; // staking
+
+        // zero-out any additional beneficiary allocations
+        for (uint256 i = 4; i < existingBeneficiaries.length; ) {
+            newAllocations[i] = 0;
+            unchecked {
+                ++i;
+            }
+        }
+
+        // check if index 0 is smart treasury
+        if (existingBeneficiaries[0] != idleSmartTreasury) {
+            IFeeCollector(feeCollector).setSmartTreasuryAddress(
+                idleSmartTreasury
+            );
+            emit ReplacedBeneficiary(0, idleSmartTreasury, newAllocations[0]);
+        }
+
+        // add the spigot as a beneficiary
+        IFeeCollector(feeCollector).replaceBeneficiaryAt(
+            1,
+            spigot,
+            newAllocations
+        );
+        emit ReplacedBeneficiary(1, spigot, newAllocations[1]);
+
+        // replace the rebalancer if necessary
+        if (existingBeneficiaries[2] != idleRebalancer) {
+            IFeeCollector(feeCollector).replaceBeneficiaryAt(
+                2,
+                idleRebalancer,
+                newAllocations
+            );
+            emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
+        }
+
+        // replace the staking fee swapper if necessary
+        if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
+            IFeeCollector(feeCollector).replaceBeneficiaryAt(
+                3,
+                idleStakingFeeSwapper,
+                newAllocations
+            );
+            emit ReplacedBeneficiary(3, idleRebalancer, newAllocations[3]);
+        }
+    }
+
     function recoverAdmin(address newAdmin_) external {
         require(!migrationSucceeded, "Migration has not been completed");
         require(
