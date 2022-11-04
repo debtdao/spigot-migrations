@@ -16,8 +16,8 @@ import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol"
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 
-// import {FeeCollector} from "idle-smart-treasury/FeeCollector.sol";
-
+/// @dev    We define our own interface to avoid Solidity version conflicts
+///         with the imported lib.
 interface IFeeCollector {
     function hasRole(bytes32 role, address account) external returns (bool);
 
@@ -38,6 +38,15 @@ interface IFeeCollector {
     function setSmartTreasuryAddress(address _smartTreasuryAddress) external;
 }
 
+/// @title  Idle Migration Contract
+/// @author DebtDAO
+/// @notice Deploys the Line of Credit and assosciated contracts, and
+///         facilitates the transfer of admin privileges to the Spigot
+/// @dev    A Secured Line Of Credit is deployed during contract creation.
+/// @dev    In order to successfully facilitate the migration, this contract
+///         requires admin privileges on the Idle Fee Collector.  This privilige
+///         escalation takes place in the first step of the governance proposal
+///          executed by the Idle Timelock.
 contract IdleMigration {
     // interfaces
     IFeeCollector iFeeCollector;
@@ -76,8 +85,11 @@ contract IdleMigration {
     bool migrationSucceeded;
     uint256 deployedAt;
 
-    event Status(LineLib.STATUS s);
-
+    event MigrationDeployed(
+        address indexed spigot,
+        address indexed escrow,
+        address indexed line
+    );
     event MigrationSucceeded();
     event ReplacedBeneficiary(
         uint256 index,
@@ -85,13 +97,13 @@ contract IdleMigration {
         uint256 allocation
     );
 
+    // TODO: remove these
     event log_named_uint(string key, uint256 val);
     event log_named_string(string key, string val);
     event log_named_address(string key, address val);
 
     error NotFeeCollectorAdmin();
     error MigrationFailed();
-    // error MigrationNotComplete();
     error MigrationAlreadyComplete();
     error SpigotOwnershipTransferFailed();
     error EscrowOwnershipTransferFailed();
@@ -152,7 +164,13 @@ contract IdleMigration {
             spigot,
             escrow
         );
+
+        emit MigrationDeployed(spigot, escrow, securedLine);
     }
+
+    ///////////////////////////////////////////////////////
+    //                 E X T E R N A L                   //
+    ///////////////////////////////////////////////////////
 
     function migrate() external onlyAuthorized {
         if (!iFeeCollector.isAddressAdmin(address(this))) {
@@ -229,9 +247,24 @@ contract IdleMigration {
         emit MigrationSucceeded();
     }
 
+    function recoverAdmin(address newAdmin_) external {
+        if (migrationSucceeded) {
+            revert NoRecoverAfterSuccessfulMigration();
+        }
+
+        if (block.timestamp < deployedAt + 30 days) {
+            revert CooldownPeriodStillActive();
+        }
+
+        iFeeCollector.replaceAdmin(idleTimelock);
+    }
+
+    ///////////////////////////////////////////////////////
+    //                I N T E R N A L                    //
+    ///////////////////////////////////////////////////////
+
     // TODO: test this
     // TODO: this could fail if an existing benficiary is at the wrong index and it tries to add a duplicate
-
     /// @dev This function is a safeguard against the protocol switching beneficiaries
     ///      or changing allocations between the deployment of the migration contract and the migration
     function _setBeneficiariesAndAllocations() internal {
@@ -302,25 +335,13 @@ contract IdleMigration {
         }
     }
 
-    function recoverAdmin(address newAdmin_) external {
-        if (migrationSucceeded) {
-            revert NoRecoverAfterSuccessfulMigration();
-        }
-
-        if (block.timestamp < deployedAt + 30 days) {
-            revert CooldownPeriodStillActive();
-        }
-
-        iFeeCollector.replaceAdmin(idleTimelock);
-    }
-
-    // ===================== Internal
-
     function _getSelector(string memory _func) internal pure returns (bytes4) {
         return bytes4(keccak256(bytes(_func))); //TODO: use abi encode with selector
     }
 
-    // ===================== Modifiers
+    ///////////////////////////////////////////////////////
+    //                M O D I F I E R S                  //
+    ///////////////////////////////////////////////////////
 
     /// @dev    should only be callable by the timelock contract
     modifier onlyAuthorized() {
