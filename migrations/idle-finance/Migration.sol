@@ -142,7 +142,7 @@ contract IdleMigration {
     }
 
     function migrate() external onlyAuthorized {
-        if (!IFeeCollector(feeCollector).isAddressAdmin(address(this))) {
+        if (!iFeeCollector.isAddressAdmin(address(this))) {
             revert NotFeeCollectorAdmin();
         }
         require(!migrationSucceeded, "Migration is complete");
@@ -163,7 +163,7 @@ contract IdleMigration {
 
         // we need to whitelist the spigot in order for it to call `deposit` via
         // it's own `claimRevenue` fn
-        IFeeCollector(feeCollector).addAddressToWhiteList(spigot);
+        iFeeCollector.addAddressToWhiteList(spigot);
 
         // TODO: idle finance is in charge of making trades (they can call deposit as operator)
         // TODO: we probably don't want to give them access to this
@@ -202,11 +202,11 @@ contract IdleMigration {
         _setBeneficiariesAndAllocations();
 
         // transfer ownership (admin priviliges) to spigot
-        IFeeCollector(feeCollector).replaceAdmin(spigot);
+        iFeeCollector.replaceAdmin(spigot);
 
         // require spigot is admin on fee collector
         require(
-            IFeeCollector(feeCollector).isAddressAdmin(spigot),
+            iFeeCollector.isAddressAdmin(spigot),
             "Migration: Spigot is not the feeCollector admin"
         );
 
@@ -235,7 +235,7 @@ contract IdleMigration {
             2   10%     Rebalancer
             3   20%     Staking
         */
-        address[] memory existingBeneficiaries = IFeeCollector(feeCollector)
+        address[] memory existingBeneficiaries = iFeeCollector
             .getBeneficiaries();
 
         uint256[] memory newAllocations = new uint256[](
@@ -257,23 +257,17 @@ contract IdleMigration {
 
         // check if index 0 is smart treasury
         if (existingBeneficiaries[0] != idleSmartTreasury) {
-            IFeeCollector(feeCollector).setSmartTreasuryAddress(
-                idleSmartTreasury
-            );
+            iFeeCollector.setSmartTreasuryAddress(idleSmartTreasury);
             emit ReplacedBeneficiary(0, idleSmartTreasury, newAllocations[0]);
         }
 
         // add the spigot as a beneficiary
-        IFeeCollector(feeCollector).replaceBeneficiaryAt(
-            1,
-            spigot,
-            newAllocations
-        );
+        iFeeCollector.replaceBeneficiaryAt(1, spigot, newAllocations);
         emit ReplacedBeneficiary(1, spigot, newAllocations[1]);
 
         // replace the rebalancer if necessary
         if (existingBeneficiaries[2] != idleRebalancer) {
-            IFeeCollector(feeCollector).replaceBeneficiaryAt(
+            iFeeCollector.replaceBeneficiaryAt(
                 2,
                 idleRebalancer,
                 newAllocations
@@ -283,7 +277,7 @@ contract IdleMigration {
 
         // replace the staking fee swapper if necessary
         if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
-            IFeeCollector(feeCollector).replaceBeneficiaryAt(
+            iFeeCollector.replaceBeneficiaryAt(
                 3,
                 idleStakingFeeSwapper,
                 newAllocations
@@ -298,7 +292,7 @@ contract IdleMigration {
             block.timestamp > deployedAt + 30 days,
             "Cooldown still active"
         );
-        IFeeCollector(feeCollector).replaceAdmin(idleTimelock);
+        iFeeCollector.replaceAdmin(idleTimelock);
     }
 
     // ===================== Internal
