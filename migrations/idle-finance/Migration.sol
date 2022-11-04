@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.9;
 
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
@@ -15,6 +15,8 @@ import {SpigotedLine} from "Line-of-Credit/modules/credit/SpigotedLine.sol";
 import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
+
+// import {FeeCollector} from "idle-smart-treasury/FeeCollector.sol";
 
 interface IFeeCollector {
     function hasRole(bytes32 role, address account) external returns (bool);
@@ -36,7 +38,8 @@ interface IFeeCollector {
     function setSmartTreasuryAddress(address _smartTreasuryAddress) external;
 }
 
-contract Migration {
+contract IdleMigration {
+    IFeeCollector iFeeCollector;
     // admin
     bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
     address private immutable owner;
@@ -105,6 +108,8 @@ contract Migration {
         feeCollector = revenueContract_;
         idleTimelock = timelock_;
         deployedAt = block.timestamp;
+
+        iFeeCollector = IFeeCollector(revenueContract_);
 
         // deploy spigot
         spigot = IModuleFactory(moduleFactory_).deploySpigot(

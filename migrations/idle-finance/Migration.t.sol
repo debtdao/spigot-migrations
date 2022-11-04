@@ -20,7 +20,7 @@ import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
 
-import {Migration} from "./Migration.sol";
+import {IdleMigration} from "./Migration.sol";
 
 // TODO: test internal function with assertEQ failing
 
@@ -175,7 +175,7 @@ contract IdleMigrationTest is Test {
     }
 
     function test_returning_admin_to_timelock() external {
-        Migration migration = new Migration(
+        IdleMigration migration = new IdleMigration(
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
@@ -210,7 +210,7 @@ contract IdleMigrationTest is Test {
         // vm.selectFork(ethMainnetFork);
         // assertEq(vm.activeFork(), ethMainnetFork);
 
-        Migration migration = new Migration(
+        IdleMigration migration = new IdleMigration(
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
@@ -227,12 +227,12 @@ contract IdleMigrationTest is Test {
         migration.migrate();
         vm.stopPrank();
 
-        // vm.expectRevert(Migration.NotFeeCollectorAdmin.selector);
+        // vm.expectRevert(IdleMigration.NotFeeCollectorAdmin.selector);
         // migration.migrate();
     }
 
     function test_migration_vote_passed_and_migration_succeeds() external {
-        Migration migration = _deployMigrationContract();
+        IdleMigration migration = _deployMigrationContract();
 
         // Simulate the governance process, which replaces the admin and performs the migration
         uint256 proposalId = _submitProposal(address(migration));
@@ -253,7 +253,7 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migration_with_loan_and_repayment() external {
-        Migration migration = _deployMigrationContract();
+        IdleMigration migration = _deployMigrationContract();
         SpigotedLine line = SpigotedLine(payable(migration.securedLine()));
 
         // Simulate the governance process, which replaces the admin and performs the migration
@@ -334,7 +334,7 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migration_vote_not_passed() external {
-        Migration migration = new Migration(
+        IdleMigration migration = new IdleMigration(
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
@@ -351,7 +351,7 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migration_vote_but_no_quorum() external {
-        Migration migration = new Migration(
+        IdleMigration migration = new IdleMigration(
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
@@ -422,9 +422,12 @@ contract IdleMigrationTest is Test {
         deal(dai, address(dex), 10e18);
     }
 
-    function _deployMigrationContract() internal returns (Migration migration) {
+    function _deployMigrationContract()
+        internal
+        returns (IdleMigration migration)
+    {
         // the migration contract deploys the line of credit, along with spigot and escrow
-        migration = new Migration(
+        migration = new IdleMigration(
             address(moduleFactory),
             address(lineFactory),
             idleFeeCollector,
