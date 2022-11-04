@@ -78,7 +78,7 @@ contract IdleMigration {
 
     event Status(LineLib.STATUS s);
 
-    event MigrationComplete();
+    event MigrationSucceeded();
     event ReplacedBeneficiary(
         uint256 index,
         address contractAddress,
@@ -91,6 +91,14 @@ contract IdleMigration {
 
     error NotFeeCollectorAdmin();
     error MigrationFailed();
+    // error MigrationNotComplete();
+    error MigrationAlreadyComplete();
+    error SpigotOwnershipTransferFailed();
+    error EscrowOwnershipTransferFailed();
+    error LineNotActive();
+    error SpigotNotAdmin();
+    error NoRecoverAfterSuccessfulMigration();
+    error CooldownPeriodStillActive();
 
     // TODO: if the migration contract is still the owner of the spigot and escrow, and not owned by line
     // should be transferred back
@@ -150,7 +158,10 @@ contract IdleMigration {
         if (!iFeeCollector.isAddressAdmin(address(this))) {
             revert NotFeeCollectorAdmin();
         }
-        require(!migrationSucceeded, "Migration is complete");
+        if (migrationSucceeded) {
+            revert MigrationAlreadyComplete();
+        }
+
         migrationSucceeded = true;
 
         // add the revenue contract
@@ -189,20 +200,20 @@ contract IdleMigration {
         // transfer ownership of spigot and escrow to line
         // TODO: test these
         iSpigot.updateOwner(securedLine);
-        IEscrow(escrow).updateLine(securedLine);
+        if (iSpigot.owner() != securedLine) {
+            revert SpigotOwnershipTransferFailed();
+        }
 
-        require(
-            iSpigot.owner() == securedLine,
-            "Migration: Spigot owner transfer failed"
-        );
-        require(
-            IEscrow(escrow).line() == securedLine,
-            "Migration: Escrow line transfer failed"
-        );
+        IEscrow(escrow).updateLine(securedLine);
+        if (IEscrow(escrow).line() != securedLine) {
+            revert EscrowOwnershipTransferFailed();
+        }
 
         LineLib.STATUS status = ILineOfCredit(securedLine).init();
 
-        require(status == LineLib.STATUS.ACTIVE, "Migration: Line not active");
+        if (status != LineLib.STATUS.ACTIVE) {
+            revert LineNotActive();
+        }
 
         _setBeneficiariesAndAllocations();
 
@@ -210,12 +221,12 @@ contract IdleMigration {
         iFeeCollector.replaceAdmin(spigot);
 
         // require spigot is admin on fee collector
-        require(
-            iFeeCollector.isAddressAdmin(spigot),
-            "Migration: Spigot is not the feeCollector admin"
-        );
+        if (!iFeeCollector.isAddressAdmin(spigot)) {
+            revert SpigotNotAdmin();
+        }
 
-        emit MigrationComplete();
+        // TODO: add data to event
+        emit MigrationSucceeded();
     }
 
     // TODO: test this
@@ -292,11 +303,14 @@ contract IdleMigration {
     }
 
     function recoverAdmin(address newAdmin_) external {
-        require(!migrationSucceeded, "Migration has not been completed");
-        require(
-            block.timestamp > deployedAt + 30 days,
-            "Cooldown still active"
-        );
+        if (migrationSucceeded) {
+            revert NoRecoverAfterSuccessfulMigration();
+        }
+
+        if (block.timestamp < deployedAt + 30 days) {
+            revert CooldownPeriodStillActive();
+        }
+
         iFeeCollector.replaceAdmin(idleTimelock);
     }
 
