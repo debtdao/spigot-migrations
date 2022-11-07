@@ -2,18 +2,12 @@
 pragma solidity ^0.8.9;
 
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
-import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
-import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
-import {ISecuredLine} from "Line-of-Credit/interfaces/ISecuredLine.sol";
 import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {LineLib} from "Line-of-Credit/utils/LineLib.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
 import {IModuleFactory} from "Line-of-Credit/interfaces/IModuleFactory.sol";
-import {SpigotedLine} from "Line-of-Credit/modules/credit/SpigotedLine.sol";
-import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol";
-import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 
 /// @dev    We define our own interface to avoid Solidity version conflicts
