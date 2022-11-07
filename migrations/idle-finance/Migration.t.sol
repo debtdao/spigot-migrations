@@ -223,7 +223,7 @@ contract IdleMigrationTest is Test {
         );
 
         vm.startPrank(makeAddr("random1"));
-        vm.expectRevert(bytes("Migration: Unauthorized user"));
+        vm.expectRevert(IdleMigration.TimelockOnly.selector);
         migration.migrate();
         vm.stopPrank();
 

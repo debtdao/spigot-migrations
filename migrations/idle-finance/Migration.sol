@@ -17,7 +17,7 @@ import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 
 /// @dev    We define our own interface to avoid Solidity version conflicts
-///         with the imported lib.
+///         that would occur by importing Idle Contracts as a lib.
 interface IFeeCollector {
     function hasRole(bytes32 role, address account) external returns (bool);
 
@@ -46,14 +46,13 @@ interface IFeeCollector {
 /// @dev    In order to successfully facilitate the migration, this contract
 ///         requires admin privileges on the Idle Fee Collector.  This privilige
 ///         escalation takes place in the first step of the governance proposal
-///          executed by the Idle Timelock.
+///         executed by the Idle Timelock.
 contract IdleMigration {
     // interfaces
     IFeeCollector iFeeCollector;
     ISpigot iSpigot;
 
     // admin
-    bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
     address private immutable owner;
 
     // trusted 3rd-parties
@@ -65,52 +64,80 @@ contract IdleMigration {
 
     // Idle
     address private immutable feeCollector;
+
     address private immutable idleTimelock;
 
     // TODO: confirm these
     address private constant idleSmartTreasury =
         0x859E4D219E83204a2ea389DAc11048CC880B6AA8;
+
     address private constant idleFeeTreausry =
         0x69a62C24F16d4914a48919613e8eE330641Bcb94;
+
     address private constant idleRebalancer =
         0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B;
+
     address private constant idleStakingFeeSwapper =
         0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3;
 
     // migration
     address public immutable spigot;
+
     address public immutable escrow;
+
     address public immutable securedLine;
 
     bool migrationSucceeded;
+
     uint256 deployedAt;
+
+    /*//////////////////////////////////////////////////////////////
+                            E V E N T S
+    //////////////////////////////////////////////////////////////*/
+
+    event MigrationSucceeded();
 
     event MigrationDeployed(
         address indexed spigot,
         address indexed escrow,
         address indexed line
     );
-    event MigrationSucceeded();
+
     event ReplacedBeneficiary(
         uint256 index,
         address contractAddress,
         uint256 allocation
     );
 
-    // TODO: remove these
-    event log_named_uint(string key, uint256 val);
-    event log_named_string(string key, string val);
-    event log_named_address(string key, address val);
+    /*//////////////////////////////////////////////////////////////
+                            E R R O R S
+    //////////////////////////////////////////////////////////////*/
+
+    // errors
+
+    error NoRecoverAfterSuccessfulMigration();
+
+    error SpigotOwnershipTransferFailed();
+
+    error EscrowOwnershipTransferFailed();
+
+    error CooldownPeriodStillActive();
+
+    error MigrationAlreadyComplete();
 
     error NotFeeCollectorAdmin();
+
     error MigrationFailed();
-    error MigrationAlreadyComplete();
-    error SpigotOwnershipTransferFailed();
-    error EscrowOwnershipTransferFailed();
-    error LineNotActive();
+
     error SpigotNotAdmin();
-    error NoRecoverAfterSuccessfulMigration();
-    error CooldownPeriodStillActive();
+
+    error LineNotActive();
+
+    error TimelockOnly();
+
+    /*//////////////////////////////////////////////////////////////
+                        C O N S T R U C T O R
+    //////////////////////////////////////////////////////////////*/
 
     // TODO: if the migration contract is still the owner of the spigot and escrow, and not owned by line
     // should be transferred back
@@ -140,7 +167,6 @@ contract IdleMigration {
             idleTreasuryMultisig_, // treasury - Treasury Multisig
             idleTreasuryMultisig_ // operator - Treasury Multisig
         );
-
         iSpigot = ISpigot(spigot);
 
         // deploy escrow
@@ -159,6 +185,7 @@ contract IdleMigration {
                 revenueSplit: 100 //uint8(revenueSplit)
             });
 
+        // deoloy the line of credit
         securedLine = ILineFactory(lineFactory_).deploySecuredLineWithModules(
             coreParams,
             spigot,
@@ -168,9 +195,9 @@ contract IdleMigration {
         emit MigrationDeployed(spigot, escrow, securedLine);
     }
 
-    ///////////////////////////////////////////////////////
-    //                 E X T E R N A L                   //
-    ///////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////
+                    M I G R A T I O N   L O G I C                  
+    //////////////////////////////////////////////////////*/
 
     function migrate() external onlyAuthorized {
         if (!iFeeCollector.isAddressAdmin(address(this))) {
@@ -247,6 +274,10 @@ contract IdleMigration {
         emit MigrationSucceeded();
     }
 
+    /*//////////////////////////////////////////////////////
+                        DEADMAN'S SWITCH                  
+    //////////////////////////////////////////////////////*/
+
     function recoverAdmin(address newAdmin_) external {
         if (migrationSucceeded) {
             revert NoRecoverAfterSuccessfulMigration();
@@ -259,9 +290,9 @@ contract IdleMigration {
         iFeeCollector.replaceAdmin(idleTimelock);
     }
 
-    ///////////////////////////////////////////////////////
-    //                I N T E R N A L                    //
-    ///////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////
+                        I N T E R N A L                    
+    //////////////////////////////////////////////////////*/
 
     // TODO: test this
     // TODO: this could fail if an existing benficiary is at the wrong index and it tries to add a duplicate
@@ -335,23 +366,22 @@ contract IdleMigration {
         }
     }
 
+    /*//////////////////////////////////////////////////////
+                            U T I L S                    
+    //////////////////////////////////////////////////////*/
+
     function _getSelector(string memory _func) internal pure returns (bytes4) {
         return bytes4(keccak256(bytes(_func))); //TODO: use abi encode with selector
     }
 
-    ///////////////////////////////////////////////////////
-    //                M O D I F I E R S                  //
-    ///////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////
+                        M O D I F I E R S                  
+    //////////////////////////////////////////////////////*/
 
     /// @dev    should only be callable by the timelock contract
     modifier onlyAuthorized() {
         // TODO: improve error messages
-        require(msg.sender == idleTimelock, "Migration: Unauthorized user");
-        _;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Migration: Not owner");
+        if (msg.sender != idleTimelock) revert TimelockOnly();
         _;
     }
 }
