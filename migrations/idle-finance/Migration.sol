@@ -85,6 +85,8 @@ contract IdleMigration {
 
     uint256 deployedAt;
 
+    uint256 private constant cooldownPeriod = 30 days;
+
     /*//////////////////////////////////////////////////////////////
                             E V E N T S
     //////////////////////////////////////////////////////////////*/
@@ -106,8 +108,6 @@ contract IdleMigration {
     /*//////////////////////////////////////////////////////////////
                             E R R O R S
     //////////////////////////////////////////////////////////////*/
-
-    // errors
 
     error NoRecoverAfterSuccessfulMigration();
 
@@ -193,6 +193,10 @@ contract IdleMigration {
                     M I G R A T I O N   L O G I C                  
     //////////////////////////////////////////////////////*/
 
+    /// @notice Performs the migration
+    /// @dev    Can only be called my an authorized user, ie the governance Timelock
+    /// @dev    Adds a revenue stream to the Spigot, and makes the Line of Credit the owner
+    ///         of the Spigot and Escrow contracts
     function migrate() external onlyAuthorized {
         if (!iFeeCollector.isAddressAdmin(address(this))) {
             revert NotFeeCollectorAdmin();
@@ -203,10 +207,8 @@ contract IdleMigration {
 
         migrationSucceeded = true;
 
-        // add the revenue contract
-        // programs the function into the spigot which gets called when remove Spigot
+        // programs the function into the spigot which gets called when Spigot is removed
         // the operator is the entity to whom the spigot is returned when loan is repaid
-        /// @dev abi.encodeWithSignature/selector gives the full calldata, not the fn selector
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100, // 100% to owner
             _getSelector("deposit(bool[],uint256[],uint256)"), // claim fn // TODO: change to bytes("") so its only a push payment
@@ -236,8 +238,7 @@ contract IdleMigration {
             "Migration: add address not whitelisted"
         );
 
-        // transfer ownership of spigot and escrow to line
-        // TODO: test these
+        // transfer ownership of spigot and escrow to line of credit
         iSpigot.updateOwner(securedLine);
         if (iSpigot.owner() != securedLine) {
             revert SpigotOwnershipTransferFailed();
@@ -248,6 +249,7 @@ contract IdleMigration {
             revert EscrowOwnershipTransferFailed();
         }
 
+        // initialize the line
         LineLib.STATUS status = ILineOfCredit(securedLine).init();
 
         if (status != LineLib.STATUS.ACTIVE) {
@@ -264,7 +266,6 @@ contract IdleMigration {
             revert SpigotNotAdmin();
         }
 
-        // TODO: add data to event
         emit MigrationSucceeded();
     }
 
@@ -272,12 +273,14 @@ contract IdleMigration {
                         DEADMAN'S SWITCH                  
     //////////////////////////////////////////////////////*/
 
-    function recoverAdmin(address newAdmin_) external {
+    /// @notice Recovers ownership of the revenue contract in the event of a failed migration
+    /// @dev    predicated on the migration contract being a priviliged admin
+    function recoverAdmin() external {
         if (migrationSucceeded) {
             revert NoRecoverAfterSuccessfulMigration();
         }
 
-        if (block.timestamp < deployedAt + 30 days) {
+        if (block.timestamp < deployedAt + cooldownPeriod) {
             revert CooldownPeriodStillActive();
         }
 
@@ -288,7 +291,6 @@ contract IdleMigration {
                         I N T E R N A L                    
     //////////////////////////////////////////////////////*/
 
-    // TODO: test this
     // TODO: this could fail if an existing benficiary is at the wrong index and it tries to add a duplicate
     /// @dev This function is a safeguard against the protocol switching beneficiaries
     ///      or changing allocations between the deployment of the migration contract and the migration
@@ -364,8 +366,16 @@ contract IdleMigration {
                             U T I L S                    
     //////////////////////////////////////////////////////*/
 
-    function _getSelector(string memory _func) internal pure returns (bytes4) {
-        return bytes4(keccak256(bytes(_func))); //TODO: use abi encode with selector
+    /// @notice Gets a function selector from its signature
+    /// @dev    The signature includes only the argument types, and omits the names
+    /// @param  signature The function's signature
+    /// @return The 4-byte function selector of the signature provided in `signature`
+    function _getSelector(string memory signature)
+        internal
+        pure
+        returns (bytes4)
+    {
+        return bytes4(keccak256(bytes(signature))); //TODO: use abi encode with selector
     }
 
     /*//////////////////////////////////////////////////////
@@ -374,7 +384,6 @@ contract IdleMigration {
 
     /// @dev    should only be callable by the timelock contract
     modifier onlyAuthorized() {
-        // TODO: improve error messages
         if (msg.sender != idleTimelock) revert TimelockOnly();
         _;
     }

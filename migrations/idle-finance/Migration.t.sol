@@ -196,10 +196,10 @@ contract IdleMigrationTest is Test {
         );
 
         vm.expectRevert(IdleMigration.CooldownPeriodStillActive.selector);
-        migration.recoverAdmin(idleTimelock);
+        migration.recoverAdmin();
 
         vm.warp(block.timestamp + 31 days);
-        migration.recoverAdmin(idleTimelock);
+        migration.recoverAdmin();
 
         assertTrue(
             IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock)
