@@ -130,9 +130,6 @@ contract IdleMigration {
                         C O N S T R U C T O R
     //////////////////////////////////////////////////////////////*/
 
-    // TODO: if the migration contract is still the owner of the spigot and escrow, and not owned by line
-    // should be transferred back
-    // TODO: deadman's switch: return ownership to timelock if migration fails, transfer the spigot and escrow to multisig
     constructor(
         address moduleFactory_,
         address lineFactory_,
@@ -242,6 +239,7 @@ contract IdleMigration {
             revert LineNotActive();
         }
 
+        // add the spigot as beneficiary and update allocations
         _setBeneficiariesAndAllocations();
 
         // transfer ownership (admin priviliges) to spigot
@@ -272,16 +270,10 @@ contract IdleMigration {
 
         iFeeCollector.replaceAdmin(idleTimelock);
 
-        // TODO: confirm this is who we want to take over ownership
         iSpigot.updateOwner(idleTreasuryLeagueMultisig);
         if (iSpigot.owner() != idleTreasuryLeagueMultisig) {
             revert SpigotOwnershipTransferFailed();
         }
-
-        // IEscrow(escrow).updateLine(idleTreasuryLeagueMultiSig);
-        // if (IEscrow(escrow).line() != securedLine) {
-        //     revert EscrowOwnershipTransferFailed();
-        // }
     }
 
     /*//////////////////////////////////////////////////////

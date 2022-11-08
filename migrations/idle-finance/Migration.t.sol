@@ -462,7 +462,7 @@ contract IdleMigrationTest is Test {
 
         bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
         emit log_named_bytes("add address calldata", data);
-        assertEq(depositSelector, bytes4(data));
+        assertEq(IFeeCollector.deposit.selector, bytes4(data));
 
         require(ISpigot(_spigot).isWhitelisted(bytes4(data)), "Not Whitelisted");
 
