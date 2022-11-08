@@ -437,59 +437,21 @@ contract IdleMigrationTest is Test {
         assertEq(IERC20(weth).balanceOf(idleFeeCollector), revenue);
     }
 
+    /// @dev    Because they claim function is not set in the spigot, this will be a push payment only
+    /// @dev    We need to call `deposit()` manually before claiming revenue, or there will be no revenue
+    ///         to claim (because calling `deposit()` distribute revenue to beneficiaires,of which the spigot is one)
     function _claimRevenueOnBehalfOfSpigot(address _spigot, uint256 _expectedRevenue) internal {
-        /*
-            function deposit(
-                bool[] memory _depositTokensEnabled,
-                uint256[] memory _minTokenOut,
-                uint256 _minPoolAmountOut
-            ) external;
-        */
-        /*
-        uint256 _depositTokensLength = IFeeCollector(idleFeeCollector).getNumTokensInDepositList();
-
-        bool[] memory _tokensEnabled = new bool[](_depositTokensLength);
-
-        uint256[] memory _minTokensOut = new uint256[](_depositTokensLength);
-
-        // we'll skip the swapping and just send the Weth in the contract,
-        // so all deposit tokens can be disabled
-        for (uint256 i; i < _tokensEnabled.length; ) {
-            _tokensEnabled[i] = false;
-            unchecked {
-                ++i;
-            }
-        }
-
-        // TODO: data can probably be empty
-
-        bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
-        */
         bytes memory data = abi.encodePacked("");
-        // All this is doing is triggering the fee collector (revenue contract)
-        // to convert tokens to WETH and distribute to beneficiaries (which include spigot)
-        // TODO: do we pass "token" as weth, and does it matter?
         ISpigot(_spigot).claimRevenue(idleFeeCollector, weth, data);
-
         assertEq(_expectedRevenue, IERC20(weth).balanceOf(_spigot));
     }
 
-    // TODO: rename this and/or change the whitelisted fn
-
     function _operatorCallDeposit(address _spigot) internal {
-        bytes4 depositSelector = _getSelector("deposit(bool[],uint256[],uint256)");
-
-        emit log_named_bytes4("deposit", depositSelector);
-
-        // bytes memory data = abi.encodeWithSignature(IFeeCollector.deposit.selector, debtDaoDeployer);
-
         uint256 _depositTokensLength = IFeeCollector(idleFeeCollector).getNumTokensInDepositList();
-
         bool[] memory _tokensEnabled = new bool[](_depositTokensLength);
-
         uint256[] memory _minTokensOut = new uint256[](_depositTokensLength);
 
-        // we'll skip the swapping and just send the Weth in the contract,
+        // we'll skip the swapping and just send the Weth directly to the contract,
         // so all deposit tokens can be disabled
         for (uint256 i; i < _tokensEnabled.length; ) {
             _tokensEnabled[i] = false;
@@ -499,9 +461,7 @@ contract IdleMigrationTest is Test {
         }
 
         bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
-
         emit log_named_bytes("add address calldata", data);
-
         assertEq(depositSelector, bytes4(data));
 
         require(ISpigot(_spigot).isWhitelisted(bytes4(data)), "Not Whitelisted");
