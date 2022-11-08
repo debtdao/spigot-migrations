@@ -25,6 +25,12 @@ interface IFeeCollector {
         uint256[] calldata _newAllocation
     ) external;
 
+    function deposit(
+        bool[] memory _depositTokensEnabled,
+        uint256[] memory _minTokenOut,
+        uint256 _minPoolAmountOut
+    ) external;
+
     function addAddressToWhiteList(address _addressToAdd) external;
 
     function getBeneficiaries() external view returns (address[] memory);
@@ -50,8 +56,7 @@ contract IdleMigration {
     address private immutable owner;
 
     // trusted 3rd-parties
-    address private constant zeroExSwapTarget =
-        0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
+    address private constant zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
     // debtdao
     address private immutable debtDaoDeployer;
@@ -62,17 +67,13 @@ contract IdleMigration {
     address private immutable idleTimelock;
 
     // TODO: confirm these
-    address private constant idleSmartTreasury =
-        0x859E4D219E83204a2ea389DAc11048CC880B6AA8;
+    address private constant idleSmartTreasury = 0x859E4D219E83204a2ea389DAc11048CC880B6AA8;
 
-    address private constant idleFeeTreausry =
-        0x69a62C24F16d4914a48919613e8eE330641Bcb94;
+    address private constant idleFeeTreausry = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
 
-    address private constant idleRebalancer =
-        0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B;
+    address private constant idleRebalancer = 0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B;
 
-    address private constant idleStakingFeeSwapper =
-        0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3;
+    address private constant idleStakingFeeSwapper = 0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3;
 
     // migration
     address public immutable spigot;
@@ -93,17 +94,9 @@ contract IdleMigration {
 
     event MigrationSucceeded();
 
-    event MigrationDeployed(
-        address indexed spigot,
-        address indexed escrow,
-        address indexed line
-    );
+    event MigrationDeployed(address indexed spigot, address indexed escrow, address indexed line);
 
-    event ReplacedBeneficiary(
-        uint256 index,
-        address contractAddress,
-        uint256 allocation
-    );
+    event ReplacedBeneficiary(uint256 index, address contractAddress, uint256 allocation);
 
     /*//////////////////////////////////////////////////////////////
                             E R R O R S
@@ -171,20 +164,15 @@ contract IdleMigration {
             idleTreasuryMultisig_ // borrower
         );
 
-        ILineFactory.CoreLineParams memory coreParams = ILineFactory
-            .CoreLineParams({
-                borrower: borrower_, // idleTreasuryLeagueMultiSig,
-                ttl: ttl_,
-                cratio: 0, //uint32(creditRatio),
-                revenueSplit: 100 //uint8(revenueSplit)
-            });
+        ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
+            borrower: borrower_, // idleTreasuryLeagueMultiSig,
+            ttl: ttl_,
+            cratio: 0, //uint32(creditRatio),
+            revenueSplit: 100 //uint8(revenueSplit)
+        });
 
         // deoloy the line of credit
-        securedLine = ILineFactory(lineFactory_).deploySecuredLineWithModules(
-            coreParams,
-            spigot,
-            escrow
-        );
+        securedLine = ILineFactory(lineFactory_).deploySecuredLineWithModules(coreParams, spigot, escrow);
 
         emit MigrationDeployed(spigot, escrow, securedLine);
     }
@@ -211,32 +199,27 @@ contract IdleMigration {
         // the operator is the entity to whom the spigot is returned when loan is repaid
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100, // 100% to owner
-            _getSelector("deposit(bool[],uint256[],uint256)"), // claim fn // TODO: change to bytes("") so its only a push payment
+            bytes4(0), // no claim fn, therefore just a push payment
             _getSelector("replaceAdmin(address)") // transferOwnerFn // gets transferred to operator
         );
 
         // add a revenue stream
         iSpigot.addSpigot(feeCollector, spigotSettings);
 
-        // we need to whitelist the spigot in order for it to call `deposit` via
-        // it's own `claimRevenue` fn
+        // we need to whitelist the spigot in order for it to call `deposit` on behalf of the operator
         iFeeCollector.addAddressToWhiteList(spigot);
 
-        // TODO: idle finance is in charge of making trades (they can call deposit as operator)
-        // TODO: we probably don't want to give them access to this
-        // add address to whitelist fn as a function the operator can call
-        bytes4 addAddressSelector = _getSelector(
-            "addAddressToWhiteList(address)"
-        );
+        // TODO: do we want to remove the rebalancer from being able to call `deposit()`??
+
+        // add `desposit()` as a whitelisted fn so the operator can call it
+        // bytes4 depositSelector = _getSelector("deposit(bool[],uint256[],uint256)");
+        bytes4 depositSelector = IFeeCollector.deposit.selector;
         iSpigot.updateWhitelistedFunction(
-            addAddressSelector, // selector
+            depositSelector, // selector
             true
         );
 
-        require(
-            iSpigot.isWhitelisted(addAddressSelector),
-            "Migration: add address not whitelisted"
-        );
+        require(iSpigot.isWhitelisted(depositSelector), "Migration: deposit not whitelisted for operator");
 
         // transfer ownership of spigot and escrow to line of credit
         iSpigot.updateOwner(securedLine);
@@ -270,7 +253,7 @@ contract IdleMigration {
     }
 
     /*//////////////////////////////////////////////////////
-                        DEADMAN'S SWITCH                  
+                       R E D U N D A N C Y                  
     //////////////////////////////////////////////////////*/
 
     /// @notice Recovers ownership of the revenue contract in the event of a failed migration
@@ -311,12 +294,9 @@ contract IdleMigration {
             2   10%     Rebalancer
             3   20%     Staking
         */
-        address[] memory existingBeneficiaries = iFeeCollector
-            .getBeneficiaries();
+        address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
 
-        uint256[] memory newAllocations = new uint256[](
-            existingBeneficiaries.length
-        );
+        uint256[] memory newAllocations = new uint256[](existingBeneficiaries.length);
 
         newAllocations[0] = 0; // smart treasury
         newAllocations[1] = 70000; // spigot
@@ -343,21 +323,13 @@ contract IdleMigration {
 
         // replace the rebalancer if necessary
         if (existingBeneficiaries[2] != idleRebalancer) {
-            iFeeCollector.replaceBeneficiaryAt(
-                2,
-                idleRebalancer,
-                newAllocations
-            );
+            iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
             emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
         }
 
         // replace the staking fee swapper if necessary
         if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
-            iFeeCollector.replaceBeneficiaryAt(
-                3,
-                idleStakingFeeSwapper,
-                newAllocations
-            );
+            iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
             emit ReplacedBeneficiary(3, idleRebalancer, newAllocations[3]);
         }
     }
@@ -370,12 +342,8 @@ contract IdleMigration {
     /// @dev    The signature includes only the argument types, and omits the names
     /// @param  signature The function's signature
     /// @return The 4-byte function selector of the signature provided in `signature`
-    function _getSelector(string memory signature)
-        internal
-        pure
-        returns (bytes4)
-    {
-        return bytes4(keccak256(bytes(signature))); //TODO: use abi encode with selector
+    function _getSelector(string memory signature) internal pure returns (bytes4) {
+        return bytes4(keccak256(bytes(signature)));
     }
 
     /*//////////////////////////////////////////////////////
