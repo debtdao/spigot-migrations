@@ -66,8 +66,10 @@ contract IdleMigration {
 
     address private immutable idleTimelock;
 
+    address private immutable idleTreasuryLeagueMultisig;
+
     // TODO: confirm these
-    address private constant idleSmartTreasury = 0x859E4D219E83204a2ea389DAc11048CC880B6AA8;
+    address private constant idleSmartTreasury = 0x859E4D219E83204a2ea389DAc11048CC880B6AA8; // multisig
 
     address private constant idleFeeTreausry = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
 
@@ -116,6 +118,8 @@ contract IdleMigration {
 
     error MigrationFailed();
 
+    error NotIdleMultisig();
+
     error SpigotNotAdmin();
 
     error LineNotActive();
@@ -143,6 +147,7 @@ contract IdleMigration {
         owner = msg.sender; // presumably Idle Deployer
         debtDaoDeployer = debtDaoDeployer_;
         feeCollector = revenueContract_;
+        idleTreasuryLeagueMultisig = idleTreasuryMultisig_;
         idleTimelock = timelock_;
         deployedAt = block.timestamp;
 
@@ -209,8 +214,6 @@ contract IdleMigration {
         // we need to whitelist the spigot in order for it to call `deposit` on behalf of the operator
         iFeeCollector.addAddressToWhiteList(spigot);
 
-        // TODO: do we want to remove the rebalancer from being able to call `deposit()`??
-
         // add `desposit()` as a whitelisted fn so the operator can call it
         // bytes4 depositSelector = _getSelector("deposit(bool[],uint256[],uint256)");
         bytes4 depositSelector = IFeeCollector.deposit.selector;
@@ -258,7 +261,7 @@ contract IdleMigration {
 
     /// @notice Recovers ownership of the revenue contract in the event of a failed migration
     /// @dev    predicated on the migration contract being a priviliged admin
-    function recoverAdmin() external {
+    function recoverAdmin() external onlyIdle {
         if (migrationSucceeded) {
             revert NoRecoverAfterSuccessfulMigration();
         }
@@ -268,6 +271,17 @@ contract IdleMigration {
         }
 
         iFeeCollector.replaceAdmin(idleTimelock);
+
+        // TODO: confirm this is who we want to take over ownership
+        iSpigot.updateOwner(idleTreasuryLeagueMultisig);
+        if (iSpigot.owner() != idleTreasuryLeagueMultisig) {
+            revert SpigotOwnershipTransferFailed();
+        }
+
+        // IEscrow(escrow).updateLine(idleTreasuryLeagueMultiSig);
+        // if (IEscrow(escrow).line() != securedLine) {
+        //     revert EscrowOwnershipTransferFailed();
+        // }
     }
 
     /*//////////////////////////////////////////////////////
@@ -353,6 +367,11 @@ contract IdleMigration {
     /// @dev    should only be callable by the timelock contract
     modifier onlyAuthorized() {
         if (msg.sender != idleTimelock) revert TimelockOnly();
+        _;
+    }
+
+    modifier onlyIdle() {
+        if (msg.sender != idleTreasuryLeagueMultisig) revert NotIdleMultisig();
         _;
     }
 }

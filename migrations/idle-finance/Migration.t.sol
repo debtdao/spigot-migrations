@@ -199,11 +199,18 @@ contract IdleMigrationTest is Test {
 
         assert(IFeeCollector(idleFeeCollector).isAddressAdmin(address(migration)));
 
+        vm.expectRevert(IdleMigration.NotIdleMultisig.selector);
+        migration.recoverAdmin();
+
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+
         vm.expectRevert(IdleMigration.CooldownPeriodStillActive.selector);
         migration.recoverAdmin();
 
         vm.warp(block.timestamp + 31 days);
         migration.recoverAdmin();
+
+        vm.stopPrank();
 
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
     }
