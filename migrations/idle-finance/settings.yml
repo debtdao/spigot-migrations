@@ -27,6 +27,18 @@ revenue_contract:
       - claim_function: ""
       - transfer_owner_function: "replaceAdmin(address)"
   - beneficiaries:
+      - smart_treasury:
+          - address: 0x859E4D219E83204a2ea389DAc11048CC880B6AA8
+          - allocation_pct: 0
+      - spigot:
+          - address: tbd
+          - allocation_pct: 70
+      - rebalancer:
+          - address: 0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B
+          - allocation_pct: 10
+      - staking_fee_swapper:
+          - address: 0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3
+          - allocation_pct: 20
 
 operations:
   - deposit:
