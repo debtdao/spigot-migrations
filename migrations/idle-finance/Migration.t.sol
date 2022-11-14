@@ -181,6 +181,10 @@ contract IdleMigrationTest is Test {
     }
 
     function test_returning_admin_to_timelock() external {
+        vm.selectFork(ethMainnetFork);
+        assertEq(vm.activeFork(), ethMainnetFork);
+        assertEq(block.number, 15_795_856);
+
         IdleMigration migration = new IdleMigration(
             address(moduleFactory),
             address(lineFactory),
@@ -302,7 +306,7 @@ contract IdleMigrationTest is Test {
 
         vm.startPrank(idleTreasuryLeagueMultiSig);
         // this calls getEscrowed (claims escrow for owner)
-        ISpigotedLine(migration.securedLine()).claimAndRepay(weth, data);
+        ISpigotedLine(migration.securedLine()).claimAndRepay(weth, data); // swap is performed internally
         vm.stopPrank();
         (, principal, interest, repaid, , , ) = line.credits(id);
 
@@ -313,6 +317,7 @@ contract IdleMigrationTest is Test {
         // lender withdraw on line of credit
         vm.startPrank(daiWhale);
         ILineOfCredit(migration.securedLine()).withdraw(id, repaid); // repaid + deposit
+        // TODO: check balances
         vm.stopPrank();
 
         // principal on position must be zero to close
@@ -394,6 +399,7 @@ contract IdleMigrationTest is Test {
         emit log_named_bytes32("credit id", id);
     }
 
+    // TODO: try this with real 0x Data
     function _generateTradeData(address _spigot, uint256 repayment) internal returns (bytes memory tradeData) {
         uint256 claimable = ISpigot(_spigot).getEscrowed(weth);
 
@@ -461,7 +467,7 @@ contract IdleMigrationTest is Test {
         }
 
         bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
-        emit log_named_bytes("add address calldata", data);
+        emit log_named_bytes("deposit data", data);
         assertEq(IFeeCollector.deposit.selector, bytes4(data));
 
         require(ISpigot(_spigot).isWhitelisted(bytes4(data)), "Not Whitelisted");

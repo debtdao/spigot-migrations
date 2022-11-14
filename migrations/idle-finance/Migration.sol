@@ -180,6 +180,21 @@ contract IdleMigration {
     }
 
     /*//////////////////////////////////////////////////////
+                        M O D I F I E R S                  
+    //////////////////////////////////////////////////////*/
+
+    /// @dev    should only be callable by the timelock contract
+    modifier onlyAuthorized() {
+        if (msg.sender != idleTimelock) revert TimelockOnly();
+        _;
+    }
+
+    modifier onlyIdle() {
+        if (msg.sender != idleTreasuryLeagueMultisig) revert NotIdleMultisig();
+        _;
+    }
+
+    /*//////////////////////////////////////////////////////
                     M I G R A T I O N   L O G I C                  
     //////////////////////////////////////////////////////*/
 
@@ -212,7 +227,6 @@ contract IdleMigration {
         iFeeCollector.addAddressToWhiteList(spigot);
 
         // add `desposit()` as a whitelisted fn so the operator can call it
-        // bytes4 depositSelector = _getSelector("deposit(bool[],uint256[],uint256)");
         bytes4 depositSelector = IFeeCollector.deposit.selector;
         iSpigot.updateWhitelistedFunction(
             depositSelector, // selector
@@ -350,20 +364,5 @@ contract IdleMigration {
     /// @return The 4-byte function selector of the signature provided in `signature`
     function _getSelector(string memory signature) internal pure returns (bytes4) {
         return bytes4(keccak256(bytes(signature)));
-    }
-
-    /*//////////////////////////////////////////////////////
-                        M O D I F I E R S                  
-    //////////////////////////////////////////////////////*/
-
-    /// @dev    should only be callable by the timelock contract
-    modifier onlyAuthorized() {
-        if (msg.sender != idleTimelock) revert TimelockOnly();
-        _;
-    }
-
-    modifier onlyIdle() {
-        if (msg.sender != idleTreasuryLeagueMultisig) revert NotIdleMultisig();
-        _;
     }
 }
