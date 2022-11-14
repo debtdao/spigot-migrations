@@ -22,6 +22,9 @@ actors:
 revenue_contract:
   - name: "Idle Fee Collector"
   - address: 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4
+  - admin:
+      - description: "Timelock"
+      - address: 0xD6dABBc2b275114a2366555d6C481EF08FDC2556
   - spigot_settings:
       - owner_split: 100
       - claim_function: ""
