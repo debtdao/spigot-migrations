@@ -268,7 +268,6 @@ contract IdleMigrationTest is Test {
 
         assert(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
 
-        // TODO: should they transfer out
         bytes32 id = _lenderFundLoan(migration.securedLine());
 
         uint256 amountToBorrow = loanSizeInDai;
