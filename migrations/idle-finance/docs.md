@@ -12,11 +12,13 @@ sequenceDiagram
     Deployer ->> Migration: deploy
     activate Migration
     Migration ->>+ ModuleFactory: deploySpigot()
-    ModuleFactory -->>- Migration: spigot
+    ModuleFactory ->> Spigot: deploy
+    ModuleFactory -->>- Migration: spigot address
     Migration ->>+ ModuleFactory: deployEscrow()
-    ModuleFactory -->>- Migration: escrow
+    ModuleFactory ->> Escrow: deploy
+    ModuleFactory -->>- Migration: escrow address
     Migration ->>+ LineFactory: deploySecuredLine()
-    LineFactory -->>- Migration: securedLine
+    LineFactory -->>- Migration: securedLine address
     deactivate Migration
 
 ```
@@ -51,11 +53,78 @@ sequenceDiagram
     Migration ->> Spigot: updateWhitelistedFunction("deposit()")
     Migration ->> Spigot: updateOwner(securedLine)
     Migration ->> Escrow: updateLine(securedLine)
-    Migration ->> SecuredLine: init()
+    Migration ->> SecuredLine (LineOfCredit): init()
     loop ReplaceBeneficiary
         Migration ->> FeeCollector: replaceBeneficiaryAt(i)
     end
     Migration ->> FeeCollector: replaceAdmin(spigot)
     deactivate Migration
+
+```
+
+```mermaid
+sequenceDiagram
+    title Debt Repayment
+
+    actor Lender
+    actor Rando
+
+    Treasury Multisig ->> LineOfCredit: addCredit()
+    Lender ->> LineOfCredit: addCredit()
+
+    Treasury Multisig ->> LineOfCredit: borrow()
+
+    Yield Contracts ->> FeeCollector: transfer()
+
+
+    Treasury Multisig ->> Spigot: operate("deposit()")
+    activate Spigot
+    Spigot ->> FeeCollector: deposit()
+    activate FeeCollector
+    loop
+        FeeCollector ->> UniswapV2: swapExactTokensForTokensSupportingFeeOnTransferTokens
+    end
+    loop
+        FeeCollector ->> WETH: safeTransfer()
+    end
+
+    activate WETH
+
+    WETH ->> FeeCollector: transfer
+
+    deactivate WETH
+
+    activate FeeCollector
+
+    FeeCollector -->> Spigot: transfer (70%)
+    FeeCollector -->> FeeSwapper: transfer (20%)
+    FeeCollector -->> Rebalancer: (10%)
+
+    deactivate FeeCollector
+
+
+    deactivate Spigot
+
+    Rando ->> Spigot: claimRevenue()
+
+    Treasury Multisig ->> LineOfCredit: claimAndRepay()
+    activate LineOfCredit
+    LineOfCredit ->> Spigot: claimEscrow()
+    LineOfCredit ->> ZeroEx: trade()
+    deactivate LineOfCredit
+    Lender ->> LineOfCredit: withdraw()
+    Treasury Multisig ->> LineOfCredit: close()
+    Treasury Multisig ->> LineOfCredit: releaseSpigot()
+    activate LineOfCredit
+    LineOfCredit ->> Spigot: updateOwner("treasury multisig")
+    deactivate LineOfCredit
+    Treasury Multisig ->> Spigot: removeSpigot()
+    activate Spigot
+    Spigot ->> FeeCollector: replaceAdmin("treasury multisig")
+    deactivate Spigot
+    Treasury Multisig ->> FeeCollector: replaceAdmin(Timelock)
+
+
+
 
 ```
