@@ -150,7 +150,7 @@ contract IdleMigrationTest is Test {
     constructor() {
         emit log_named_address("debtDaoDeployer", debtDaoDeployer);
 
-        vm.prank(debtDaoDeployer);
+        vm.startPrank(debtDaoDeployer);
         oracle = new Oracle(chainlinkFeedRegistry);
         moduleFactory = new ModuleFactory();
         dex = new ZeroEx();
@@ -161,6 +161,7 @@ contract IdleMigrationTest is Test {
             address(oracle), // oracle
             address(dex) // zeroExSwapTarget // swapTarget
         );
+        vm.stopPrank();
     }
 
     function setUp() public {
@@ -323,6 +324,23 @@ contract IdleMigrationTest is Test {
         // call depositAndClose; (only borrower);
         vm.startPrank(idleTreasuryLeagueMultiSig);
         line.close(id);
+        vm.stopPrank();
+
+        emit log_named_uint("status", uint256(line.status()));
+
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        // release the spigot (called by the borrow as the line is repaid)
+        // Line status must be REPAID or LIQUIDATABLE
+
+        line.releaseSpigot(idleTreasuryLeagueMultiSig);
+        ISpigot(migration.spigot()).removeSpigot(idleFeeCollector);
+        assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTreasuryLeagueMultiSig));
+
+        // replace the admin back to the timelock
+        IFeeCollector(idleFeeCollector).replaceAdmin(idleTimelock);
+        assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
+
+        vm.stopPrank();
     }
 
     // TODO: test that idle can't perform any admin functions
