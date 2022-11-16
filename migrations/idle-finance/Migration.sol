@@ -109,6 +109,8 @@ contract IdleMigration {
 
     error NotFeeCollectorAdmin();
 
+    error ReplaceAdminFailed();
+
     error MigrationFailed();
 
     error NotIdleMultisig();
@@ -260,6 +262,9 @@ contract IdleMigration {
         }
 
         iFeeCollector.replaceAdmin(idleTimelock);
+        if (!iFeeCollector.isAddressAdmin(idleTimelock)) {
+            revert ReplaceAdminFailed();
+        }
 
         iSpigot.updateOwner(idleTreasuryLeagueMultisig);
         if (iSpigot.owner() != idleTreasuryLeagueMultisig) {
