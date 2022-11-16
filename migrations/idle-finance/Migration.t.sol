@@ -331,7 +331,6 @@ contract IdleMigrationTest is Test {
         vm.startPrank(idleTreasuryLeagueMultiSig);
         // release the spigot (called by the borrow as the line is repaid)
         // Line status must be REPAID or LIQUIDATABLE
-
         line.releaseSpigot(idleTreasuryLeagueMultiSig);
         ISpigot(migration.spigot()).removeSpigot(idleFeeCollector);
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTreasuryLeagueMultiSig));
@@ -484,6 +483,7 @@ contract IdleMigrationTest is Test {
         }
 
         bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
+        emit log_named_bytes4("deposit selector", IFeeCollector.deposit.selector);
         emit log_named_bytes("deposit data", data);
         assertEq(IFeeCollector.deposit.selector, bytes4(data));
 
@@ -578,7 +578,10 @@ contract IdleMigrationTest is Test {
         // voting ends once the voting period is over
         vm.roll(block.number + idleVotingPeriod + 1);
 
-        assertEq(uint256(IGovernorBravo(idleGovernanceBravo).state(id)), uint256(IGovernorBravo.ProposalState.Succeeded));
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Succeeded)
+        );
 
         // queue the tx
         IGovernorBravo(idleGovernanceBravo).queue(id);
@@ -608,7 +611,10 @@ contract IdleMigrationTest is Test {
         // voting ends once the voting period is over
         vm.roll(block.number + idleVotingPeriod + 1);
 
-        assertEq(uint256(IGovernorBravo(idleGovernanceBravo).state(id)), uint256(IGovernorBravo.ProposalState.Defeated));
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Defeated)
+        );
 
         // expect the request to queue to be reverted
         vm.expectRevert(bytes("GovernorBravo::queue: proposal can only be queued if it is succeeded"));
@@ -624,7 +630,10 @@ contract IdleMigrationTest is Test {
         // voting ends once the voting period is over
         vm.roll(block.number + idleVotingPeriod + 1);
 
-        assertEq(uint256(IGovernorBravo(idleGovernanceBravo).state(id)), uint256(IGovernorBravo.ProposalState.Defeated));
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Defeated)
+        );
 
         // expect the request to queue to be reverted
         vm.expectRevert(bytes("GovernorBravo::queue: proposal can only be queued if it is succeeded"));
