@@ -182,21 +182,7 @@ contract IdleMigrationTest is Test {
     }
 
     function test_returning_admin_to_timelock() external {
-        vm.selectFork(ethMainnetFork);
-        assertEq(vm.activeFork(), ethMainnetFork);
-        assertEq(block.number, 15_795_856);
-
-        IdleMigration migration = new IdleMigration(
-            address(moduleFactory),
-            address(lineFactory),
-            idleFeeCollector,
-            idleTreasuryLeagueMultiSig,
-            idleTimelock,
-            debtDaoDeployer,
-            address(oracle),
-            idleTreasuryLeagueMultiSig, // borrower
-            90 days //ttl
-        );
+        IdleMigration migration = _deployMigration();
 
         // incomplete proposal will transfer admin privileges, but won't call `migrate()`
         uint256 proposalId = _submitIncompleteProposal(address(migration));
@@ -224,17 +210,7 @@ contract IdleMigrationTest is Test {
         // vm.selectFork(ethMainnetFork);
         // assertEq(vm.activeFork(), ethMainnetFork);
 
-        IdleMigration migration = new IdleMigration(
-            address(moduleFactory),
-            address(lineFactory),
-            idleFeeCollector,
-            idleTreasuryLeagueMultiSig,
-            idleTimelock,
-            debtDaoDeployer,
-            address(oracle),
-            idleTreasuryLeagueMultiSig, // borrower
-            90 days //ttl
-        );
+        IdleMigration migration = _deployMigration();
 
         vm.startPrank(makeAddr("random1"));
         vm.expectRevert(IdleMigration.TimelockOnly.selector);
@@ -243,7 +219,7 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migration_vote_passed_and_migration_succeeds() external {
-        IdleMigration migration = _deployMigrationContract();
+        IdleMigration migration = _deployMigration();
 
         // Simulate the governance process, which replaces the admin and performs the migration
         uint256 proposalId = _submitProposal(address(migration));
@@ -260,7 +236,7 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migration_with_loan_and_repayment() external {
-        IdleMigration migration = _deployMigrationContract();
+        IdleMigration migration = _deployMigration();
         SpigotedLine line = SpigotedLine(payable(migration.securedLine()));
 
         // Simulate the governance process, which replaces the admin and performs the migration
@@ -351,34 +327,14 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migration_vote_not_passed() external {
-        IdleMigration migration = new IdleMigration(
-            address(moduleFactory),
-            address(lineFactory),
-            idleFeeCollector,
-            idleTreasuryLeagueMultiSig,
-            idleTimelock,
-            debtDaoDeployer,
-            address(oracle),
-            idleTreasuryLeagueMultiSig, // borrower
-            90 days //ttl
-        );
+        IdleMigration migration = _deployMigration();
 
         // governance
         _proposeAndVoteToFail(address(migration));
     }
 
     function test_migration_vote_but_no_quorum() external {
-        IdleMigration migration = new IdleMigration(
-            address(moduleFactory),
-            address(lineFactory),
-            idleFeeCollector,
-            idleTreasuryLeagueMultiSig,
-            idleTimelock,
-            debtDaoDeployer,
-            address(oracle),
-            idleTreasuryLeagueMultiSig, // borrower
-            90 days //ttl
-        );
+        IdleMigration migration = _deployMigration();
 
         // governance
         _proposeAndNoQuorum(address(migration));
@@ -387,6 +343,13 @@ contract IdleMigrationTest is Test {
     ///////////////////////////////////////////////////////
     //          I N T E R N A L   H E L P E R S          //
     ///////////////////////////////////////////////////////
+
+    function _deployMigration() internal returns (IdleMigration migration) {
+        migration = new IdleMigration(
+            address(lineFactory), // line factory
+            90 days //ttl
+        );
+    }
 
     function _lenderFundLoan(address _lineOfCredit) internal returns (bytes32 id) {
         vm.startPrank(idleTreasuryLeagueMultiSig);
@@ -432,21 +395,6 @@ contract IdleMigrationTest is Test {
         // make sure the dex has tokens to trade
         deal(weth, address(dex), 10e18);
         deal(dai, address(dex), 10e18);
-    }
-
-    function _deployMigrationContract() internal returns (IdleMigration migration) {
-        // the migration contract deploys the line of credit, along with spigot and escrow
-        migration = new IdleMigration(
-            address(moduleFactory),
-            address(lineFactory),
-            idleFeeCollector,
-            idleTreasuryLeagueMultiSig,
-            idleTimelock,
-            debtDaoDeployer,
-            address(oracle),
-            idleTreasuryLeagueMultiSig, // borrower
-            90 days //ttl
-        );
     }
 
     function _simulateRevenueGeneration(uint256 amt) internal returns (uint256 revenue) {

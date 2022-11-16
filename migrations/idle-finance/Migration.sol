@@ -52,23 +52,16 @@ contract IdleMigration {
     IFeeCollector iFeeCollector;
     ISpigot iSpigot;
 
-    // admin
-    address private immutable owner;
-
-    // trusted 3rd-parties
+    // DEX
     address private constant zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
-    // debtdao
-    address private immutable debtDaoDeployer;
+    // Idle Contracts
+    address private constant idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
 
-    // Idle
-    address private immutable feeCollector;
+    address private constant idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
 
-    address private immutable idleTimelock;
+    address private constant idleTreasuryLeagueMultisig = 0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814;
 
-    address private immutable idleTreasuryLeagueMultisig;
-
-    // TODO: confirm these
     address private constant idleSmartTreasury = 0x859E4D219E83204a2ea389DAc11048CC880B6AA8; // multisig
 
     address private constant idleFeeTreausry = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
@@ -130,44 +123,28 @@ contract IdleMigration {
                         C O N S T R U C T O R
     //////////////////////////////////////////////////////////////*/
 
-    constructor(
-        address moduleFactory_,
-        address lineFactory_,
-        address revenueContract_,
-        address idleTreasuryMultisig_,
-        address timelock_,
-        address debtDaoDeployer_,
-        address oracle_,
-        address borrower_,
-        uint256 ttl_
-    ) {
-        owner = msg.sender; // presumably Idle Deployer
-        debtDaoDeployer = debtDaoDeployer_;
-        feeCollector = revenueContract_;
-        idleTreasuryLeagueMultisig = idleTreasuryMultisig_;
-        idleTimelock = timelock_;
+    constructor(address lineFactory_, uint256 ttl_) {
         deployedAt = block.timestamp;
 
-        iFeeCollector = IFeeCollector(revenueContract_);
+        iFeeCollector = IFeeCollector(idleFeeCollector);
 
         // deploy spigot
-        spigot = IModuleFactory(moduleFactory_).deploySpigot(
-            address(this), // owner - debtdaoMultisig // TODO: change this to multisig
-            idleTreasuryMultisig_, // treasury - Treasury Multisig
-            idleTreasuryMultisig_ // operator - Treasury Multisig
+        spigot = ILineFactory(lineFactory_).deploySpigot(
+            address(this), // owner
+            idleTreasuryLeagueMultisig, // treasury - Treasury Multisig
+            idleTreasuryLeagueMultisig // operator - Treasury Multisig
         );
         iSpigot = ISpigot(spigot);
 
         // deploy escrow
-        escrow = IModuleFactory(moduleFactory_).deployEscrow(
+        escrow = ILineFactory(lineFactory_).deployEscrow(
             0, // min credit ratio
-            oracle_, // oracle
             address(this), // owner
-            idleTreasuryMultisig_ // borrower
+            idleTreasuryLeagueMultisig // borrower
         );
 
         ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
-            borrower: borrower_, // idleTreasuryLeagueMultiSig,
+            borrower: idleTreasuryLeagueMultisig,
             ttl: ttl_,
             cratio: 0, //uint32(creditRatio),
             revenueSplit: 100 //uint8(revenueSplit)
@@ -221,7 +198,7 @@ contract IdleMigration {
         );
 
         // add a revenue stream
-        iSpigot.addSpigot(feeCollector, spigotSettings);
+        iSpigot.addSpigot(idleFeeCollector, spigotSettings);
 
         // we need to whitelist the spigot in order for it to call `deposit` on behalf of the operator
         iFeeCollector.addAddressToWhiteList(spigot);
