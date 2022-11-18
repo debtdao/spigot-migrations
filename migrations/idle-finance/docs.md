@@ -81,13 +81,13 @@ sequenceDiagram
 
 Once a lender and the borrower (Idle Finance) have been matched, each party calls `addCredit()` on the Line of Credit, passing the same parameters - which are required by the Line Of Credit's `Mutual Consent` mechanism.  The Lender is the second to call the function, which facilitates the transfer of funds to the Line Of Credit contract.
 
-The borrower is then able to withdraw the funds by calling `borrow()` on the Line of Credit.
+The borrower is then able to draw down on the available credit by calling `borrow()` on the Line of Credit.
 
-Over time, the Idle Finance protocol generates yield, which transfers tokens to the Fee Collector.  In order to distribute this revenue, the operator (Idle Treasury Multisig) calls `operate()` on the Spigot, passing in the previously whitelisted `deposit()` function along with the required `calldata`.  This triggers the Fee Collector to trade the held tokens for Weth, and distribute them to the beneficiaries according to their allocation percentages.
+Over time, the Idle Finance protocol generates fees which accrue to the Fee Collector.  In order to distribute this revenue, the operator (Idle Treasury Multisig) calls `operate()` on the Spigot, passing in the previously whitelisted `deposit()` function along with the required `calldata`.  This triggers the Fee Collector to trade the held tokens for Weth, and distribute them to the beneficiaries according to their allocation percentages.
 
 Once significant revenue has been generated, the borrower calls `claimAndRepay` on the Line of Credit. This claims the revenue tokens from the Spigot (via `claimEscrow()` ) and trades them for the original credit tokens via a Dex Aggregator (0x Protocol) and uses the newly purchased credit tokens to repay the debt.
 
-The lender then reclaims their principal, along with interest payments, by calling `withdraw()` on the Line of Credit. The borrower (Idle Treasure Multisig) then closes the Line of Credit by calling `close()`, and releases the Spigot by calling `releaseSpigot()` (also on the Line of Credit). This triggers the transfer of ownership of the Spigot to the Treasury League Multisig (borrower). The borrower is then able to call `removeSpigot()` on the Spigot, which internally calls `replaceAdmin()` on the Fee Collector, setting the Idle Treasury League Multisig as the new Fee Collector's admin.  The final step is for the Idle Treasury League multisig to call `replaceAdmin()` on the Fee Collector, restoring the Timelock contract as the admin.
+The lender then reclaims their principal, along with accrued interest, by calling `withdraw()` on the Line of Credit. The borrower (Idle Treasure Multisig) then closes the Line of Credit by calling `close()`, and releases the Spigot by calling `releaseSpigot()` (also on the Line of Credit). This triggers the transfer of ownership of the Spigot to the Treasury League Multisig (borrower). The borrower is then able to call `removeSpigot()` on the Spigot, which internally calls `replaceAdmin()` on the Fee Collector, setting the Idle Treasury League Multisig as the new Fee Collector's admin.  The final step is for the Idle Treasury League multisig to call `replaceAdmin()` on the Fee Collector, restoring the Timelock contract as the admin.
 
 
 
