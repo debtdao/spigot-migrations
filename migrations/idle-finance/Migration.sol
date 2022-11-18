@@ -56,26 +56,28 @@ contract IdleMigration {
     address private constant zeroExSwapTarget = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
 
     // Idle Contracts
-    address private constant idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
-
-    address private constant idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
 
     address private constant idleTreasuryLeagueMultisig = 0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814;
 
+    address private constant idleStakingFeeSwapper = 0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3;
+
     address private constant idleSmartTreasury = 0x859E4D219E83204a2ea389DAc11048CC880B6AA8; // multisig
+
+    address private constant idleFeeCollector = 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4;
 
     address private constant idleFeeTreausry = 0x69a62C24F16d4914a48919613e8eE330641Bcb94;
 
     address private constant idleRebalancer = 0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B;
 
-    address private constant idleStakingFeeSwapper = 0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3;
+    address private constant idleTimelock = 0xD6dABBc2b275114a2366555d6C481EF08FDC2556;
 
     // migration
+
+    address public immutable securedLine;
+
     address public immutable spigot;
 
     address public immutable escrow;
-
-    address public immutable securedLine;
 
     bool migrationSucceeded;
 
@@ -87,11 +89,11 @@ contract IdleMigration {
                             E V E N T S
     //////////////////////////////////////////////////////////////*/
 
-    event MigrationSucceeded();
-
     event MigrationDeployed(address indexed spigot, address indexed escrow, address indexed line);
 
     event ReplacedBeneficiary(uint256 index, address contractAddress, uint256 allocation);
+
+    event MigrationSucceeded();
 
     /*//////////////////////////////////////////////////////////////
                             E R R O R S

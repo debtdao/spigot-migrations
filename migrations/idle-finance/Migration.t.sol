@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.4;
-
+pragma solidity ^0.8.9;
 import "forge-std/Test.sol";
-
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
 import {Oracle} from "Line-of-Credit/modules/oracle/Oracle.sol";
@@ -10,16 +8,13 @@ import {ModuleFactory} from "Line-of-Credit/modules/factories/ModuleFactory.sol"
 import {LineFactory} from "Line-of-Credit/modules/factories/LineFactory.sol";
 import {ILineFactory} from "Line-of-Credit/interfaces/ILineFactory.sol";
 import {LineOfCredit} from "Line-of-Credit/modules/credit/LineOfCredit.sol";
-
 import {SpigotedLine} from "Line-of-Credit/modules/credit/SpigotedLine.sol";
-
 import {SecuredLine} from "Line-of-Credit/modules/credit/SecuredLine.sol";
 import {ZeroEx} from "Line-of-Credit/mock/ZeroEx.sol";
 import {ISpigotedLine} from "Line-of-Credit/interfaces/ISpigotedLine.sol";
 import {IEscrow} from "Line-of-Credit/interfaces/IEscrow.sol";
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
-
 import {IdleMigration} from "./Migration.sol";
 
 // TODO: test internal function with assertEQ failing
@@ -207,9 +202,6 @@ contract IdleMigrationTest is Test {
     }
 
     function test_migrate_when_not_admin() external {
-        // vm.selectFork(ethMainnetFork);
-        // assertEq(vm.activeFork(), ethMainnetFork);
-
         IdleMigration migration = _deployMigration();
 
         vm.startPrank(makeAddr("random1"));
@@ -270,7 +262,6 @@ contract IdleMigrationTest is Test {
         // transfer WETH to the feeCollector, but we still need to distribute funds separately to simulate `deposit()`
         uint256 _revenueGenerated = _simulateRevenueGeneration(revenueToSimulate);
 
-        // actually call `deposit()`
         _operatorCallDeposit(migration.spigot());
 
         // call claimRevenue
@@ -344,6 +335,7 @@ contract IdleMigrationTest is Test {
     //          I N T E R N A L   H E L P E R S          //
     ///////////////////////////////////////////////////////
 
+    // deploy the migration contract
     function _deployMigration() internal returns (IdleMigration migration) {
         migration = new IdleMigration(
             address(lineFactory), // line factory
@@ -351,6 +343,7 @@ contract IdleMigrationTest is Test {
         );
     }
 
+    // fund a loan as a lender
     function _lenderFundLoan(address _lineOfCredit) internal returns (bytes32 id) {
         vm.startPrank(idleTreasuryLeagueMultiSig);
         ILineOfCredit(_lineOfCredit).addCredit(
