@@ -79,7 +79,7 @@ sequenceDiagram
 &nbsp;
 ## Debt Repayment
 
-Once a lender and the borrower (Idle Finance) have been matched, each party calls `addCredit()` on the Line of Credit, passing the same parameters - which are required by the Line Of Credit's `Mutual Consent` mechanism.  The Lender is the second to call the function, which facilitates the transfer of funds to the Line Of Credit contract.
+Once a lender and the borrower (Idle Finance) have been matched, each party calls `addCredit()` on the Line of Credit, passing the same parameters - which are required by the Line Of Credit's `Mutual Consent` mechanism.  The Lender is the first to call the function, after which it is called by the borrower, thus facilitating the transfer of funds to the Line Of Credit contract.
 
 The borrower is then able to draw down on the available credit by calling `borrow()` on the Line of Credit.
 
