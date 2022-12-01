@@ -36,7 +36,7 @@ The second part of the proposal performs the migration. As the new admin, the Mi
 - configures the Spigot
 - adds the Fee Collector as a source of revenue
 - whitelists the `deposit()` function
-- transfers ownership of the Spigot and Escrow contracts to the Spigot
+- transfers ownership of the Spigot and Escrow contracts to the Secured Line of Credit
 - initializes the Line of Credit
 - updates the beneficiaries and their allocations
 - and in the final step makes the Spigot the admin of the Fee Collector, thus enabling the spigots functionality and control over the protocol and thus debt repayment.
