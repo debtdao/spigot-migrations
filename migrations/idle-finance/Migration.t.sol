@@ -308,9 +308,6 @@ contract IdleMigrationTest is Test {
         ISpigotedLine(migration.securedLine()).claimAndRepay(WETH, tradeData); // swap is performed internally
         vm.stopPrank();
 
-        uint256 claimableUnusedDai = line.unused(DAI);
-        emit log_named_uint("unused DAI", claimableUnusedDai);
-
         ( , principal, interest, interestRepaid, , , , ) = line.credits(id);
 
         emit log_named_uint("principal [after]", principal);
@@ -349,9 +346,29 @@ contract IdleMigrationTest is Test {
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
 
         vm.stopPrank();
+
+        // The borrower can call sweep to return their unused tokens
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        uint256 claimableUnusedDai = line.unused(DAI);
+        // emit log_named_uint("unused DAI", claimableUnusedDai);
+        uint256 borrowerDaiBalanceBeforeSweep = IERC20(DAI).balanceOf(idleTreasuryLeagueMultiSig);
+        
+        // sweep the unused DAI to return it to the borrower
+        line.sweep(idleTreasuryLeagueMultiSig, DAI, claimableUnusedDai);
+        assertEq(IERC20(DAI).balanceOf(idleTreasuryLeagueMultiSig), borrowerDaiBalanceBeforeSweep + claimableUnusedDai, "balance should have increased after sweep");
+        
+        // unused tokens should be empty
+        claimableUnusedDai = line.unused(DAI);
+        assertEq(claimableUnusedDai, 0);
+        vm.stopPrank();
     }
 
     // TODO: test that idle can't perform any admin functions
+    function test_borrower_can_perform_admin_functions_after_migration() public {
+
+    }
+
+
 
     function test_chainlink_price_feed() external {
         int256 daiPrice = oracle.getLatestAnswer(DAI);
