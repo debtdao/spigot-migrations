@@ -288,23 +288,8 @@ contract IdleMigration {
 
     /// @dev This function is a safeguard against the protocol switching beneficiaries
     ///      or changing allocations between the deployment of the migration contract and the migration
+    ///      by replacing any duplicate beneficiary addresses
     function _setBeneficiariesAndAllocations() internal {
-        /*
-            note: this is for reference, remove before deploying 
-
-            Beneficiaries Before:
-            0   0x859E4D219E83204a2ea389DAc11048CC880B6AA8  0%      Smart Treasury
-            1   0x69a62C24F16d4914a48919613e8eE330641Bcb94  20%     Fee Treasury
-            2   0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B  30%     Rebalancer
-            3   0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3  50%     Staking Fee Swapper
-
-
-            Beneficiaries After:
-            0   0%      Smart Treasury
-            1   70%     Spigot
-            2   10%     Rebalancer
-            3   20%     Staking
-        */
         address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
 
         uint256[] memory newAllocations = new uint256[](existingBeneficiaries.length);
@@ -325,12 +310,14 @@ contract IdleMigration {
         // check if index 0 is smart treasury
         if (existingBeneficiaries[0] != idleSmartTreasury) {
             iFeeCollector.setSmartTreasuryAddress(idleSmartTreasury);
+            existingBeneficiaries = iFeeCollector.getBeneficiaries();
             emit ReplacedBeneficiary(0, idleSmartTreasury, newAllocations[0]);
         }
 
         // add the spigot as a beneficiary
         iFeeCollector.replaceBeneficiaryAt(1, spigot, newAllocations);
         emit ReplacedBeneficiary(1, spigot, newAllocations[1]);
+        existingBeneficiaries = iFeeCollector.getBeneficiaries();
 
         // memory variables to be reused
         bool hasDuplicate;
@@ -342,11 +329,13 @@ contract IdleMigration {
             if (hasDuplicate && idx != 2) {
                 iFeeCollector.replaceBeneficiaryAt(idx, existingBeneficiaries[2], newAllocations);
                 emit ReplacedBeneficiary(idx, existingBeneficiaries[2], 0);
+                existingBeneficiaries = iFeeCollector.getBeneficiaries();
             }
             iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
             emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
         }
 
+        existingBeneficiaries = iFeeCollector.getBeneficiaries();
         // replace the staking fee swapper if necessary
         if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
             (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleStakingFeeSwapper);
@@ -354,6 +343,7 @@ contract IdleMigration {
                 iFeeCollector.replaceBeneficiaryAt(idx, existingBeneficiaries[3], newAllocations);
                 emit ReplacedBeneficiary(idx, existingBeneficiaries[3], 0);
             }
+            existingBeneficiaries = iFeeCollector.getBeneficiaries();
             iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
             emit ReplacedBeneficiary(3, idleRebalancer, newAllocations[3]);
         }
