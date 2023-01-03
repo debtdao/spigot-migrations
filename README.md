@@ -18,6 +18,12 @@ Next, create a `.env` file and add the `ETH_RPC_URL` for the archive node ( to e
 cp .env.sample .env
 ```
 
+Update submodules:
+
+```
+git submodule update --recursive --remote
+```
+
 ## Testing
 
 We need to test against a fork of ethereum mainnet in order to interact with the deployed Idle Finance contracts.

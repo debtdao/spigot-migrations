@@ -66,7 +66,7 @@ governance:
           - description: "Target addresses for proposal."
       - values:
           - type: uint256[]
-          - description: "Value in Eth to be sent."
+          - description: "Values in Eth to be sent."
       - signatures:
           - type: string[]
           - description: "Function signatures."

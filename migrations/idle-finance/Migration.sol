@@ -134,24 +134,23 @@ contract IdleMigration {
 
         // deploy spigot
         spigot = ILineFactory(lineFactory_).deploySpigot(
-            address(this), // owner
-            idleTreasuryLeagueMultisig, // treasury - Treasury Multisig
-            idleTreasuryLeagueMultisig // operator - Treasury Multisig
+            address(this),                  // owner
+            idleTreasuryLeagueMultisig      // operator - Treasury Multisig
         );
         iSpigot = ISpigot(spigot);
 
         // deploy escrow
         escrow = ILineFactory(lineFactory_).deployEscrow(
-            0, // min credit ratio
-            address(this), // owner
-            idleTreasuryLeagueMultisig // borrower
+            0,                              // min credit ratio
+            address(this),                  // owner
+            idleTreasuryLeagueMultisig      // borrower
         );
 
         ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
             borrower: idleTreasuryLeagueMultisig,
-            ttl: ttl_,
-            cratio: 0, //uint32(creditRatio),
-            revenueSplit: 100 //uint8(revenueSplit)
+            ttl: ttl_,                          // time to live
+            cratio: 0,                            // uint32(creditRatio),
+            revenueSplit: 100                     // uint8(revenueSplit)
         });
 
         // deoloy the line of credit
@@ -196,9 +195,9 @@ contract IdleMigration {
         // programs the function into the spigot which gets called when Spigot is removed
         // the operator is the entity to whom the spigot is returned when loan is repaid
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
-            100, // 100% to owner
-            bytes4(0), // no claim fn, therefore just a push payment
-            _getSelector("replaceAdmin(address)") // transferOwnerFn // gets transferred to operator
+            100,                                    // 100% to owner
+            bytes4(0),                              // no claim fn, indicating push payments
+            _getSelector("replaceAdmin(address)")   // transferOwnerFn // gets transferred to operator
         );
 
         // add a revenue stream
@@ -249,7 +248,7 @@ contract IdleMigration {
     }
 
     /*//////////////////////////////////////////////////////
-                       R E D U N D A N C Y                  
+                       R E C O V E R Y                 
     //////////////////////////////////////////////////////*/
 
     /// @notice Recovers ownership of the revenue contract in the event of a failed migration
@@ -263,11 +262,13 @@ contract IdleMigration {
             revert CooldownPeriodStillActive();
         }
 
+        // return ownership from the migration contract to the Timelock
         iFeeCollector.replaceAdmin(idleTimelock);
         if (!iFeeCollector.isAddressAdmin(idleTimelock)) {
             revert ReplaceAdminFailed();
         }
 
+        // transfer ownership of the spigot to the Idle Treasury League Multisig
         iSpigot.updateOwner(idleTreasuryLeagueMultisig);
         if (iSpigot.owner() != idleTreasuryLeagueMultisig) {
             revert SpigotOwnershipTransferFailed();
@@ -342,7 +343,7 @@ contract IdleMigration {
                             U T I L S                    
     //////////////////////////////////////////////////////*/
 
-    /// @notice Gets a function selector from its signature
+    /// @notice Generates and returns the function selector from the signature provided
     /// @dev    The signature includes only the argument types, and omits the names
     /// @param  signature The function's signature
     /// @return The 4-byte function selector of the signature provided in `signature`
