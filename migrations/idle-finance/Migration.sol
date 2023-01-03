@@ -25,6 +25,11 @@ interface IFeeCollector {
         uint256[] calldata _newAllocation
     ) external;
 
+    function removeBeneficiaryAt(
+        uint256 _index,
+        uint256[] calldata _newAllocation
+    ) external;
+
     function deposit(
         bool[] memory _depositTokensEnabled,
         uint256[] memory _minTokenOut,
@@ -281,7 +286,6 @@ contract IdleMigration {
                         I N T E R N A L                    
     //////////////////////////////////////////////////////*/
 
-    // TODO: this could fail if an existing benficiary is at the wrong index and it tries to add a duplicate
     /// @dev This function is a safeguard against the protocol switching beneficiaries
     ///      or changing allocations between the deployment of the migration contract and the migration
     function _setBeneficiariesAndAllocations() internal {
@@ -310,7 +314,7 @@ contract IdleMigration {
         newAllocations[2] = 10000; // rebalancer
         newAllocations[3] = 20000; // staking
 
-        // zero-out any additional beneficiary allocations
+        // zero-out any additional beneficiary allocations (therefore no need to worry about addresses)
         for (uint256 i = 4; i < existingBeneficiaries.length; ) {
             newAllocations[i] = 0;
             unchecked {
@@ -328,14 +332,28 @@ contract IdleMigration {
         iFeeCollector.replaceBeneficiaryAt(1, spigot, newAllocations);
         emit ReplacedBeneficiary(1, spigot, newAllocations[1]);
 
+        // memory variables to be reused
+        bool hasDuplicate;
+        uint256 idx;
+
         // replace the rebalancer if necessary
         if (existingBeneficiaries[2] != idleRebalancer) {
+            (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleRebalancer);
+            if (hasDuplicate && idx != 2) {
+                iFeeCollector.replaceBeneficiaryAt(idx, existingBeneficiaries[2], newAllocations);
+                emit ReplacedBeneficiary(idx, existingBeneficiaries[2], 0);
+            }
             iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
             emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
         }
 
         // replace the staking fee swapper if necessary
         if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
+            (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleStakingFeeSwapper);
+            if (hasDuplicate && idx != 3) {
+                iFeeCollector.replaceBeneficiaryAt(idx, existingBeneficiaries[3], newAllocations);
+                emit ReplacedBeneficiary(idx, existingBeneficiaries[3], 0);
+            }
             iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
             emit ReplacedBeneficiary(3, idleRebalancer, newAllocations[3]);
         }
@@ -351,5 +369,16 @@ contract IdleMigration {
     /// @return The 4-byte function selector of the signature provided in `signature`
     function _getSelector(string memory signature) internal pure returns (bytes4) {
         return bytes4(keccak256(bytes(signature)));
+    }
+
+    /// @dev    We know that the smartTreasury address will always be at index 0, so we can return 0 as null
+    function _hasDuplicate(address[] memory beneficiaries, address addressToCheck) internal returns (bool, uint256) {     
+        for (uint256 i; i < beneficiaries.length;) {
+            if (beneficiaries[i] == addressToCheck) { return (true, i); }
+            unchecked {
+                ++i;
+            }
+        }
+        return (false,0);
     }
 }

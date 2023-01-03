@@ -364,6 +364,8 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
+    // TODO: test swapping out the beneficiaries
+
     function test_cannot_perform_admin_functions_as_borrower_after_migration() public {
         IdleMigration migration = _deployMigration();
 
@@ -429,7 +431,9 @@ contract IdleMigrationTest is Test {
 
     }
 
+    function test_fee_collector_has_correct_beneficiaries_after_migration() public {
 
+    }
 
     function test_chainlink_price_feed() external {
         int256 daiPrice = oracle.getLatestAnswer(DAI);
