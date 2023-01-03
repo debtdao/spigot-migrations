@@ -196,8 +196,8 @@ contract IdleMigration {
         // the operator is the entity to whom the spigot is returned when loan is repaid
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
             100,                                    // 100% to owner
-            bytes4(0),                              // no claim fn, indicating push payments
-            _getSelector("replaceAdmin(address)")   // transferOwnerFn // gets transferred to operator
+            bytes4(0),                              // no claim fn, indicating push payments only
+            _getSelector("replaceAdmin(address)")   // transferOwnerFn (gets transferred to operator)
         );
 
         // add a revenue stream
@@ -239,7 +239,7 @@ contract IdleMigration {
         // transfer ownership (admin priviliges) to spigot
         iFeeCollector.replaceAdmin(spigot);
 
-        // require spigot is admin on fee collector
+        // ensure spigot is admin on fee collector
         if (!iFeeCollector.isAddressAdmin(spigot)) {
             revert SpigotNotAdmin();
         }
