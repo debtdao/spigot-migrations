@@ -22,20 +22,21 @@ import {IdleMigration} from "./Migration.sol";
 
 interface IFeeCollector {
     function hasRole(bytes32 role, address account) external returns (bool);
-
     function isAddressAdmin(address _address) external view returns (bool);
-
     function replaceAdmin(address _newAdmin) external;
-
     function getDepositTokens() external view returns (address[] memory);
-
     function deposit(
         bool[] memory _depositTokensEnabled,
         uint256[] memory _minTokenOut,
         uint256 _minPoolAmountOut
     ) external;
-
     function getNumTokensInDepositList() external view returns (uint256);
+    function addAddressToWhiteList(address _addressToAdd) external; 
+    function removeAddressFromWhiteList(address _addressToRemove) external; 
+    function registerTokenToDepositList(address _tokenAddress) external; 
+    function removeTokenFromDepositList(address _tokenAddress) external; 
+    function withdraw(address _token, address _toAddress, uint256 _amount) external;
+    function withdrawUnderlying(address _toAddress, uint256 _amount, uint256[] calldata minTokenOut) external;
 }
 
 interface IWeth {
@@ -222,7 +223,7 @@ contract IdleMigrationTest is Test {
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
     }
 
-    function test_migrate_when_not_admin() external {
+    function test_caanot_migrate_when_not_admin() external {
         IdleMigration migration = _deployMigration();
 
         vm.startPrank(makeAddr("random1"));
@@ -231,7 +232,7 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
-    function test_migration_vote_passed_and_migration_succeeds() external {
+    function test_can_migrate_when_vote_passes() external {
         IdleMigration migration = _deployMigration();
 
         // Simulate the governance process, which replaces the admin and performs the migration
@@ -248,7 +249,7 @@ contract IdleMigrationTest is Test {
         _claimRevenueOnBehalfOfSpigot(migration.spigot(), _expectedRevenueDistribution);
     }
 
-    function test_migration_with_loan_and_repayment() external {
+    function test_can_migrate_and_repay_loan() external {
         IdleMigration migration = _deployMigration();
         SpigotedLine line = SpigotedLine(payable(migration.securedLine()));
 
@@ -363,8 +364,68 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
-    // TODO: test that idle can't perform any admin functions
-    function test_borrower_can_perform_admin_functions_after_migration() public {
+    function test_cannot_perform_admin_functions_as_borrower_after_migration() public {
+        IdleMigration migration = _deployMigration();
+
+        // Simulate the governance process, which replaces the admin and performs the migration
+        uint256 proposalId = _submitProposal(address(migration));
+        _voteAndPassProposal(proposalId, address(migration));
+
+        assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
+
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+
+        // attempt to replace admin
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).replaceAdmin(idleTreasuryLeagueMultiSig);
+
+        // attempt to call deposit directly
+        uint256 _depositTokensLength = IFeeCollector(idleFeeCollector).getNumTokensInDepositList();
+        bool[] memory _tokensEnabled = new bool[](_depositTokensLength);
+        uint256[] memory _minTokensOut = new uint256[](_depositTokensLength);
+
+        for (uint256 i; i < _tokensEnabled.length; ) {
+            _tokensEnabled[i] = false;
+            unchecked {
+                ++i;
+            }
+        }
+        bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).deposit(_tokensEnabled, _minTokensOut, 0);
+        
+        // attemp to withdraw
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).withdraw(DAI,idleTreasuryLeagueMultiSig, 1000 );
+       
+        // attempt to replace admin
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).replaceAdmin(idleTreasuryLeagueMultiSig);
+       
+        // attempt to withdraw underlying      
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).withdrawUnderlying(idleTreasuryLeagueMultiSig, 10000, _minTokensOut);
+
+        // attempt to remove Token from deposit list
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).removeTokenFromDepositList(DAI);
+
+        // attempt to register token to deposit list
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).registerTokenToDepositList(DAI);
+       
+
+        vm.stopPrank();
+
+        vm.startPrank(idleTimelock);
+
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).replaceAdmin(idleTimelock);
+
+        vm.expectRevert(bytes("Unauthorised"));
+        IFeeCollector(idleFeeCollector).deposit(_tokensEnabled, _minTokensOut, 0);
+        
+        vm.stopPrank();
 
     }
 

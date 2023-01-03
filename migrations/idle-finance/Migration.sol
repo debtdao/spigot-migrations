@@ -146,14 +146,16 @@ contract IdleMigration {
             idleTreasuryLeagueMultisig      // borrower
         );
 
+        // note:    The Fee Collector distributes revenue to multiple beneficiaries, we want 100% of the
+        //          revenue sent to the spigot to go to paying back the loan
         ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
             borrower: idleTreasuryLeagueMultisig,
             ttl: ttl_,                          // time to live
             cratio: 0,                            // uint32(creditRatio),
-            revenueSplit: 100                     // uint8(revenueSplit)
+            revenueSplit: 100                     // uint8(revenueSplit) - 100% to spigot
         });
 
-        // deoloy the line of credit
+        // deploy the line of credit
         securedLine = ILineFactory(lineFactory_).deploySecuredLineWithModules(coreParams, spigot, escrow);
 
         emit MigrationDeployed(spigot, escrow, securedLine);
