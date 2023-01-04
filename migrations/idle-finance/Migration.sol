@@ -280,6 +280,9 @@ contract IdleMigration {
     /// @dev This function is a safeguard against the protocol switching beneficiaries
     ///      or changing allocations between the deployment of the migration contract and the migration
     ///      itself by replacing any duplicate beneficiary addresses.
+    /// @dev Updating the beneficiaries list is inherently gas-inefficient as there is no way to batch set
+    ///      addresses, and the allocations are set with every change, making this function extremely gas-heavy
+    ///      to do in a safe and secure way
     function _setBeneficiariesAndAllocations() internal {
         address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
 
