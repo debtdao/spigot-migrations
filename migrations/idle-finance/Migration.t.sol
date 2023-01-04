@@ -417,28 +417,24 @@ contract IdleMigrationTest is Test {
             newAllocations[i] = feeCollectorAllocationsBefore[i];
         }
 
+        // add an extra benefificary so we can mix up the order
         newAllocations[4] = 0;
         IFeeCollector(idleFeeCollector).addBeneficiaryAddress(makeAddr("beneficiary5"),newAllocations);
 
-        // zero out the addresses to prevent revert for duplicates
-        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(1, makeAddr("beef1"), newAllocations);
-        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, makeAddr("beef3"), newAllocations);
-        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(1, feeCollectorBeneficiariesBefore[2], newAllocations);
-        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, feeCollectorBeneficiariesBefore[1], newAllocations);
-        (newAllocations[1],newAllocations[2]) = (newAllocations[2],newAllocations[1]);
+        // fetch beneficiares again so it includes the new "user"
+        feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
 
-        // // swap the 4th element with the last
-        // uint256 last = feeCollectorBeneficiariesBefore.length - 1;
-        // IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(3, makeAddr("beef1"), newAllocations);
-        // IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(last, makeAddr("beef3"), newAllocations);
-        // IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(3, feeCollectorBeneficiariesBefore[last], newAllocations);
-        // IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(last, feeCollectorBeneficiariesBefore[3], newAllocations);
-        // (newAllocations[3],newAllocations[last]) = (newAllocations[last],newAllocations[3]);
+        // zero out the addresses to prevent revert for duplicates
+        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, makeAddr("beef1"), newAllocations);
+        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(4, makeAddr("beef3"), newAllocations);
+        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, feeCollectorBeneficiariesBefore[4], newAllocations);
+        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(4, feeCollectorBeneficiariesBefore[2], newAllocations);
+        (newAllocations[2],newAllocations[4]) = (newAllocations[4],newAllocations[2]);
 
         IFeeCollector(idleFeeCollector).setSplitAllocation(newAllocations);
 
         vm.stopPrank();
-        
+
         // Simulate the governance process, which replaces the admin and performs the migration
         uint256 proposalId = _submitProposal(address(migration));
         _voteAndPassProposal(proposalId, address(migration));

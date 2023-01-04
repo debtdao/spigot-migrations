@@ -152,7 +152,7 @@ contract IdleMigration {
         );
 
         // note:    The Fee Collector distributes revenue to multiple beneficiaries, we want 100% of the
-        //          revenue sent to the spigot to go to paying back the loan
+        //          revenue sent to the spigot to go to paying back the loan, therefore revenueSplit = 100%
         ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
             borrower: idleTreasuryLeagueMultisig,
             ttl: ttl_,                          // time to live
@@ -291,8 +291,9 @@ contract IdleMigration {
     ///      by replacing any duplicate beneficiary addresses
     function _setBeneficiariesAndAllocations() internal {
         address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
-
-        uint256[] memory newAllocations = new uint256[](existingBeneficiaries.length);
+        uint256 numBeneficiaries = existingBeneficiaries.length > 4 ? existingBeneficiaries.length : 4;
+    
+        uint256[] memory newAllocations = new uint256[](numBeneficiaries);
 
         newAllocations[0] = 0; // smart treasury
         newAllocations[1] = 70000; // spigot
@@ -300,52 +301,59 @@ contract IdleMigration {
         newAllocations[3] = 20000; // staking
 
         // zero-out any additional beneficiary allocations (therefore no need to worry about addresses)
-        for (uint256 i = 4; i < existingBeneficiaries.length; ) {
+        for (uint256 i = 4; i < numBeneficiaries; ) {
             newAllocations[i] = 0;
             unchecked {
                 ++i;
             }
         }
 
-        // check if index 0 is smart treasury
+        // check if index 0 is smart treasury and replace if need be
         if (existingBeneficiaries[0] != idleSmartTreasury) {
             iFeeCollector.setSmartTreasuryAddress(idleSmartTreasury);
-            existingBeneficiaries = iFeeCollector.getBeneficiaries();
+            existingBeneficiaries[0] = idleSmartTreasury;
             emit ReplacedBeneficiary(0, idleSmartTreasury, newAllocations[0]);
         }
 
-        // add the spigot as a beneficiary
+        // add the spigot as a beneficiary at index 1
         iFeeCollector.replaceBeneficiaryAt(1, spigot, newAllocations);
+        existingBeneficiaries[1] = spigot;
         emit ReplacedBeneficiary(1, spigot, newAllocations[1]);
-        existingBeneficiaries = iFeeCollector.getBeneficiaries();
 
         // memory variables to be reused
+        address beef = address(0xbeef);
+        address addressToMove;
         bool hasDuplicate;
         uint256 idx;
 
-        // replace the rebalancer if necessary
+        // replace the address at index 2 with the rebalancer if it isn't at this index
         if (existingBeneficiaries[2] != idleRebalancer) {
             (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleRebalancer);
             if (hasDuplicate && idx != 2) {
-                iFeeCollector.replaceBeneficiaryAt(idx, existingBeneficiaries[2], newAllocations);
-                emit ReplacedBeneficiary(idx, existingBeneficiaries[2], 0);
-                existingBeneficiaries = iFeeCollector.getBeneficiaries();
+                addressToMove = existingBeneficiaries[2];
+                iFeeCollector.replaceBeneficiaryAt(2, beef, newAllocations);
+                iFeeCollector.replaceBeneficiaryAt(idx, addressToMove, newAllocations);
+                iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
+                existingBeneficiaries[idx] = addressToMove;
+                emit ReplacedBeneficiary(idx, addressToMove, 0);
+                existingBeneficiaries[2] = idleRebalancer;
+                emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
             }
-            iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
-            emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
         }
 
-        existingBeneficiaries = iFeeCollector.getBeneficiaries();
-        // replace the staking fee swapper if necessary
+        // replace the address at index 3 with the fee swapper if it isn't at this index
         if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
-            (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleStakingFeeSwapper);
+            (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleRebalancer);
             if (hasDuplicate && idx != 3) {
-                iFeeCollector.replaceBeneficiaryAt(idx, existingBeneficiaries[3], newAllocations);
-                emit ReplacedBeneficiary(idx, existingBeneficiaries[3], 0);
+                addressToMove = existingBeneficiaries[3];
+                iFeeCollector.replaceBeneficiaryAt(3, beef, newAllocations);
+                iFeeCollector.replaceBeneficiaryAt(idx, addressToMove, newAllocations);
+                iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
+                existingBeneficiaries[idx] = addressToMove;
+                emit ReplacedBeneficiary(idx, addressToMove, 0);
+                existingBeneficiaries[3] = idleStakingFeeSwapper;
+                emit ReplacedBeneficiary(3, idleStakingFeeSwapper, newAllocations[3]);
             }
-            existingBeneficiaries = iFeeCollector.getBeneficiaries();
-            iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
-            emit ReplacedBeneficiary(3, idleRebalancer, newAllocations[3]);
         }
     }
 
