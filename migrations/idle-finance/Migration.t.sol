@@ -458,6 +458,30 @@ contract IdleMigrationTest is Test {
         _checkAllocationsAndBeneficiaries(migration);
     }
 
+        function test_fee_collector_has_correct_beneficiaries_and_allocations_if_address_is_missing() public {
+            IdleMigration migration = _deployMigration();
+            address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
+            uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
+
+            address beef = makeAddr("beef");
+             vm.startPrank(idleTimelock);
+            // remove the rebalancer
+            IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, beef, feeCollectorAllocationsBefore);
+            feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
+            vm.stopPrank();
+
+            assertEq(feeCollectorBeneficiariesBefore[2], beef);
+
+            // Simulate the governance process, which replaces the admin and performs the migration
+            uint256 proposalId = _submitProposal(address(migration));
+            _voteAndPassProposal(proposalId, address(migration));
+
+            assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
+
+            _checkAllocationsAndBeneficiaries(migration);
+
+        }
+
     function test_cannot_perform_admin_functions_as_borrower_after_migration() public {
         IdleMigration migration = _deployMigration();
 

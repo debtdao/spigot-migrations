@@ -328,12 +328,12 @@ contract IdleMigration {
                 addressToMove = existingBeneficiaries[2];
                 iFeeCollector.replaceBeneficiaryAt(2, beef, newAllocations);
                 iFeeCollector.replaceBeneficiaryAt(idx, addressToMove, newAllocations);
-                iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
                 existingBeneficiaries[idx] = addressToMove;
                 emit ReplacedBeneficiary(idx, addressToMove, 0);
-                existingBeneficiaries[2] = idleRebalancer;
-                emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
-            }
+            } 
+            iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
+            existingBeneficiaries[2] = idleRebalancer;
+            emit ReplacedBeneficiary(2, idleRebalancer, newAllocations[2]);
         }
 
         // replace the address at index 3 with the fee swapper if it isn't at this index
@@ -343,12 +343,12 @@ contract IdleMigration {
                 addressToMove = existingBeneficiaries[3];
                 iFeeCollector.replaceBeneficiaryAt(3, beef, newAllocations);
                 iFeeCollector.replaceBeneficiaryAt(idx, addressToMove, newAllocations);
-                iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
                 existingBeneficiaries[idx] = addressToMove;
                 emit ReplacedBeneficiary(idx, addressToMove, 0);
-                existingBeneficiaries[3] = idleStakingFeeSwapper;
-                emit ReplacedBeneficiary(3, idleStakingFeeSwapper, newAllocations[3]);
             }
+            iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
+            existingBeneficiaries[3] = idleStakingFeeSwapper;
+            emit ReplacedBeneficiary(3, idleStakingFeeSwapper, newAllocations[3]);
         }
     }
 
