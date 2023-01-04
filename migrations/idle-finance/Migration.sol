@@ -130,25 +130,25 @@ contract IdleMigration {
 
         // deploy spigot
         spigot = ILineFactory(lineFactory_).deploySpigot(
-            address(this), // owner
-            idleTreasuryLeagueMultisig // operator - Treasury Multisig
+            address(this),              // owner
+            idleTreasuryLeagueMultisig  // operator - Treasury Multisig
         );
         iSpigot = ISpigot(spigot);
 
         // deploy escrow
         escrow = ILineFactory(lineFactory_).deployEscrow(
-            0, // min credit ratio
-            address(this), // owner
-            idleTreasuryLeagueMultisig // borrower
+            0,                          // min credit ratio
+            address(this),              // owner
+            idleTreasuryLeagueMultisig  // borrower
         );
 
         // note:    The Fee Collector distributes revenue to multiple beneficiaries, we want 100% of the
         //          revenue sent to the spigot to go to paying back the loan, therefore revenueSplit = 100%
         ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
             borrower: idleTreasuryLeagueMultisig,
-            ttl: ttl_, // time to live
-            cratio: 0, // uint32(creditRatio),
-            revenueSplit: 100 // uint8(revenueSplit) - 100% to spigot
+            ttl: ttl_,                 // time to live
+            cratio: 0,                  // uint32(creditRatio),
+            revenueSplit: 100           // uint8(revenueSplit) - 100% to spigot
         });
 
         // deploy the line of credit
@@ -193,9 +193,9 @@ contract IdleMigration {
         // programs the function into the spigot which gets called when Spigot is removed
         // the operator is the entity to whom the spigot is returned when loan is repaid
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
-            100, // 100% to owner
-            bytes4(0), // no claim fn, indicating push payments only
-            _getSelector("replaceAdmin(address)") // transferOwnerFn (gets transferred to operator)
+            100,                                    // 100% to owner (spigot)
+            bytes4(0),                              // no claim fn, indicating push payments only
+            _getSelector("replaceAdmin(address)")   // transferOwnerFn (gets transferred to operator)
         );
 
         // add a revenue stream
@@ -291,10 +291,10 @@ contract IdleMigration {
 
         uint256[] memory newAllocations = new uint256[](numBeneficiaries);
 
-        newAllocations[0] = 0; // smart treasury
-        newAllocations[1] = 70000; // spigot
-        newAllocations[2] = 10000; // rebalancer
-        newAllocations[3] = 20000; // staking
+        newAllocations[0] = 0;      // smart treasury
+        newAllocations[1] = 70000;  // spigot
+        newAllocations[2] = 10000;  // rebalancer
+        newAllocations[3] = 20000;  // staking
 
         // zero-out any additional beneficiary allocations (therefore no need to worry about addresses)
         if (numBeneficiaries > 4) {
