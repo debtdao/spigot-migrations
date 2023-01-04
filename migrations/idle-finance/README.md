@@ -2,7 +2,7 @@
 
 The files contained in this directory enable the deployment of a Secured Line of Credit for Idle Finance's Fee Collector.
 
-All relevant contract address and parameters for the migration are located in the [settings.yaml](./settings.yml) file.
+All relevant contract addresses and parameters for the migration are located in the [settings.yaml](./settings.yml) file.
 
 Detailed documentation of the migration process can be found in the [Idle Migration Guide](./GUIDE.md).
 
