@@ -230,11 +230,31 @@ contract IdleMigrationTest is Test {
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
     }
 
+    function test_cannot_recover_after_successful_migration() public {
+        IdleMigration migration = _deployMigration();
+        uint256 proposalId = _submitProposal(address(migration));
+        _voteAndPassProposal(proposalId, address(migration));
+
+        vm.startPrank(idleTreasuryLeagueMultiSig);
+        vm.expectRevert(IdleMigration.NoRecoverAfterSuccessfulMigration.selector);
+        migration.recoverAdmin();
+        vm.stopPrank();
+    }
+
     function test_cannot_migrate_when_not_admin() external {
         IdleMigration migration = _deployMigration();
 
         vm.startPrank(makeAddr("random1"));
         vm.expectRevert(IdleMigration.TimelockOnly.selector);
+        migration.migrate();
+        vm.stopPrank();
+    }
+
+    function test_cannot_migrate_if_migration_contract_is_not_admin() public {
+        IdleMigration migration = _deployMigration();
+
+        vm.startPrank(idleTimelock);
+        vm.expectRevert(IdleMigration.NotFeeCollectorAdmin.selector);
         migration.migrate();
         vm.stopPrank();
     }
