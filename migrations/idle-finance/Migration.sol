@@ -341,7 +341,7 @@ contract IdleMigration {
         if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
             (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleRebalancer);
             if (hasDuplicate && idx != 3) {
-                temp = address(uint160(2 * block.timestamp));
+                temp = address(uint160(3 * block.timestamp));
                 iFeeCollector.replaceBeneficiaryAt(idx, temp, newAllocations);
                 existingBeneficiaries[idx] = temp;
                 emit ReplacedBeneficiary(idx, temp, 0);
