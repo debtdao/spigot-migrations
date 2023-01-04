@@ -99,6 +99,7 @@ sequenceDiagram
 
     actor Lender
     actor Anyone
+    actor Arbiter
 
     Treasury Multisig ->> LineOfCredit: addCredit()
     activate LineOfCredit
