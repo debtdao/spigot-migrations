@@ -1,4 +1,4 @@
-# Idle Migration Sequence
+# Idle Migration Guide
 
 ## Deployment
 

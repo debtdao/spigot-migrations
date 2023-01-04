@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
+
 import "forge-std/Test.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Spigot} from "Line-of-Credit/modules/spigot/Spigot.sol";
@@ -23,22 +24,20 @@ interface IFeeCollector {
     function isAddressAdmin(address _address) external view returns (bool);
     function replaceAdmin(address _newAdmin) external;
     function getDepositTokens() external view returns (address[] memory);
-    function deposit(
-        bool[] memory _depositTokensEnabled,
-        uint256[] memory _minTokenOut,
-        uint256 _minPoolAmountOut
-    ) external;
+    function deposit(bool[] memory _depositTokensEnabled, uint256[] memory _minTokenOut, uint256 _minPoolAmountOut)
+        external;
     function getNumTokensInDepositList() external view returns (uint256);
-    function addAddressToWhiteList(address _addressToAdd) external; 
-    function removeAddressFromWhiteList(address _addressToRemove) external; 
-    function registerTokenToDepositList(address _tokenAddress) external; 
-    function removeTokenFromDepositList(address _tokenAddress) external; 
+    function addAddressToWhiteList(address _addressToAdd) external;
+    function removeAddressFromWhiteList(address _addressToRemove) external;
+    function registerTokenToDepositList(address _tokenAddress) external;
+    function removeTokenFromDepositList(address _tokenAddress) external;
     function withdraw(address _token, address _toAddress, uint256 _amount) external;
     function withdrawUnderlying(address _toAddress, uint256 _amount, uint256[] calldata minTokenOut) external;
     function getSplitAllocation() external view returns (uint256[] memory);
     function getBeneficiaries() external view returns (address[] memory);
     function setSplitAllocation(uint256[] calldata _allocations) external;
-    function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation) external;
+    function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation)
+        external;
     function addBeneficiaryAddress(address _newBeneficiary, uint256[] calldata _newAllocation) external;
 }
 
@@ -143,12 +142,13 @@ contract IdleMigrationTest is Test {
     address idleSpigotAddress;
     address idleEscrowAddress;
     address idleLineOfCredit;
-    string constant dummyProposal = "IIP-33: Allow DebtDAO migration contract to take admin control of the Fee Collector https://gov.idle.finance/t/debtdao-migration-for-loan/1056";
+    string constant dummyProposal =
+        "IIP-33: Allow DebtDAO migration contract to take admin control of the Fee Collector https://gov.idle.finance/t/debtdao-migration-for-loan/1056";
 
     uint256 ttl = 360 days;
     uint256 creditRatio = 0;
     uint256 revenueSplit = 100;
-    uint256 loanSizeInDai = 60_000 ether; // 60k dai    
+    uint256 loanSizeInDai = 60_000 ether; // 60k dai
 
     uint256 constant FORK_BLOCK_NUMBER = 16_326_881;
 
@@ -158,7 +158,7 @@ contract IdleMigrationTest is Test {
     event log_named_bytes4(string key, bytes4 value);
 
     constructor() {
-        ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"),FORK_BLOCK_NUMBER);
+        ethMainnetFork = vm.createFork(vm.envString("ETH_RPC_URL"), FORK_BLOCK_NUMBER);
         vm.selectFork(ethMainnetFork);
 
         emit log_named_string("rpc", vm.envString("ETH_RPC_URL"));
@@ -169,13 +169,13 @@ contract IdleMigrationTest is Test {
 
         // create a mock registry for pricing
         mockRegistry = new MockRegistry();
-        mockRegistry.addToken(DAI, 1*10**18); // $1.00012050
-        mockRegistry.addToken(WETH, 12005*10**18); // $12005.03050320
+        mockRegistry.addToken(DAI, 1 * 10 ** 18); // $1.00012050
+        mockRegistry.addToken(WETH, 12005 * 10 ** 18); // $12005.03050320
 
         // deploy the oracle with a mock feed registry - chainlink returns
         // a stale price when we roll the fork's block number forward
         oracle = new Oracle(address(mockRegistry));
-        
+
         // deploy the module factory
         moduleFactory = new ModuleFactory();
 
@@ -230,7 +230,7 @@ contract IdleMigrationTest is Test {
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
     }
 
-    function test_caanot_migrate_when_not_admin() external {
+    function test_cannot_migrate_when_not_admin() external {
         IdleMigration migration = _deployMigration();
 
         vm.startPrank(makeAddr("random1"));
@@ -285,11 +285,7 @@ contract IdleMigrationTest is Test {
         // update amount of interest accrued
         line.updateOutstandingDebt();
 
-        ( , uint256 principal, uint256 interest, uint256 interestRepaid, , , , ) = line.credits(id);
-
-        emit log_named_uint("principal [before]", principal);
-        emit log_named_uint("interest [before]", interest);
-        emit log_named_uint("interestRepaid [before]", interestRepaid);
+        (, uint256 principal, uint256 interest, uint256 interestRepaid,,,,) = line.credits(id);
 
         uint256 revenueToSimulate = 100 ether;
 
@@ -306,8 +302,8 @@ contract IdleMigrationTest is Test {
 
         // use trade data generated by 0x API to sell 70 ether worth of ETH for DAI
         // API call: https://api.0x.org/swap/v1/quote?buyToken=DAI&sellToken=WETH&sellAmount=70000000000000000000
-        bytes memory tradeData = hex"415565b0000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000003cb71f51fc55800000000000000000000000000000000000000000000000011b465f06f12b111540000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000740000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000034000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000002c0000000000000000000000000000000000000000000000003cb71f51fc5580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000012556e6973776170563300000000000000000000000000000000000000000000000000000000000003cb71f51fc55800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000e592427a0aece92de3edee1f18e0157c058615640000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002e000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000260ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000104d616b657250736d0000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000011b465f06f12b11154000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004000000000000000000000000089b78cfa322f6c5de0abceecab66aee45393cc5a000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000000000000000000000000000000000000000000000869584cd000000000000000000000000100000000000000000000000000000000000001100000000000000000000000000000000000000000000005d1b7ef56863b4787c";
-
+        bytes memory tradeData =
+            hex"415565b0000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000003cb71f51fc55800000000000000000000000000000000000000000000000011b465f06f12b111540000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000740000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000034000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000002c0000000000000000000000000000000000000000000000003cb71f51fc5580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000012556e6973776170563300000000000000000000000000000000000000000000000000000000000003cb71f51fc55800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000e592427a0aece92de3edee1f18e0157c058615640000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002e000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000260ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000104d616b657250736d0000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000011b465f06f12b11154000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004000000000000000000000000089b78cfa322f6c5de0abceecab66aee45393cc5a000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000000000000000000000000000000000000000000000869584cd000000000000000000000000100000000000000000000000000000000000001100000000000000000000000000000000000000000000005d1b7ef56863b4787c";
 
         // Only the arbiter can call claim and repay
         vm.startPrank(debtDaoDeployer);
@@ -316,11 +312,7 @@ contract IdleMigrationTest is Test {
         ISpigotedLine(migration.securedLine()).claimAndRepay(WETH, tradeData); // swap is performed internally
         vm.stopPrank();
 
-        ( , principal, interest, interestRepaid, , , , ) = line.credits(id);
-
-        emit log_named_uint("principal [after]", principal);
-        emit log_named_uint("interest [after]", interest);
-        emit log_named_uint("interestRepaid [after]", interestRepaid);
+        (, principal, interest, interestRepaid,,,,) = line.credits(id);
 
         // lender withdraw on line of credit
         vm.startPrank(daiWhale);
@@ -329,20 +321,19 @@ contract IdleMigrationTest is Test {
         assertEq(IERC20(DAI).balanceOf(daiWhale), lenderBalanceBeforeWithdrawl + loanSizeInDai + interestRepaid);
         vm.stopPrank();
 
-      
-
         // principal on position must be zero to close
         // only Borrower can call `close()`
         vm.startPrank(idleTreasuryLeagueMultiSig);
         line.close(id);
         vm.stopPrank();
 
-        ( , , , , , , , bool isOpen) = line.credits(id);
+        (,,,,,,, bool isOpen) = line.credits(id);
         assertTrue(!isOpen);
 
         emit log_named_uint("status", uint256(line.status()));
 
         vm.startPrank(idleTreasuryLeagueMultiSig);
+        
         // release the spigot (called by the borrow as the line is interestRepaid)
         // Line status must be REPAID or LIQUIDATABLE
         line.releaseSpigot(idleTreasuryLeagueMultiSig);
@@ -360,11 +351,15 @@ contract IdleMigrationTest is Test {
         uint256 claimableUnusedDai = line.unused(DAI);
         // emit log_named_uint("unused DAI", claimableUnusedDai);
         uint256 borrowerDaiBalanceBeforeSweep = IERC20(DAI).balanceOf(idleTreasuryLeagueMultiSig);
-        
+
         // sweep the unused DAI to return it to the borrower
         line.sweep(idleTreasuryLeagueMultiSig, DAI, claimableUnusedDai);
-        assertEq(IERC20(DAI).balanceOf(idleTreasuryLeagueMultiSig), borrowerDaiBalanceBeforeSweep + claimableUnusedDai, "balance should have increased after sweep");
-        
+        assertEq(
+            IERC20(DAI).balanceOf(idleTreasuryLeagueMultiSig),
+            borrowerDaiBalanceBeforeSweep + claimableUnusedDai,
+            "balance should have increased after sweep"
+        );
+
         // unused tokens should be empty
         claimableUnusedDai = line.unused(DAI);
         assertEq(claimableUnusedDai, 0);
@@ -398,14 +393,13 @@ contract IdleMigrationTest is Test {
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
 
         _checkAllocationsAndBeneficiaries(migration);
-
     }
 
     function test_fee_collector_has_correct_beneficiaries_and_allocations_after_changes_before_migration() public {
         IdleMigration migration = _deployMigration();
         address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
         uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
-        
+
         uint256[] memory newAllocations = new uint256[](5);
 
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
@@ -413,13 +407,13 @@ contract IdleMigrationTest is Test {
         vm.startPrank(idleTimelock);
 
         emit log_named_uint("num beneficiaires", feeCollectorBeneficiariesBefore.length);
-        for (uint i; i < feeCollectorBeneficiariesBefore.length; ++i ) {
+        for (uint256 i; i < feeCollectorBeneficiariesBefore.length; ++i) {
             newAllocations[i] = feeCollectorAllocationsBefore[i];
         }
 
         // add an extra benefificary so we can mix up the order
         newAllocations[4] = 0;
-        IFeeCollector(idleFeeCollector).addBeneficiaryAddress(makeAddr("beneficiary5"),newAllocations);
+        IFeeCollector(idleFeeCollector).addBeneficiaryAddress(makeAddr("beneficiary5"), newAllocations);
 
         // fetch beneficiares again so it includes the new "user"
         feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
@@ -429,7 +423,7 @@ contract IdleMigrationTest is Test {
         IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(4, makeAddr("beef3"), newAllocations);
         IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, feeCollectorBeneficiariesBefore[4], newAllocations);
         IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(4, feeCollectorBeneficiariesBefore[2], newAllocations);
-        (newAllocations[2],newAllocations[4]) = (newAllocations[4],newAllocations[2]);
+        (newAllocations[2], newAllocations[4]) = (newAllocations[4], newAllocations[2]);
 
         IFeeCollector(idleFeeCollector).setSplitAllocation(newAllocations);
 
@@ -442,9 +436,7 @@ contract IdleMigrationTest is Test {
         assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
 
         _checkAllocationsAndBeneficiaries(migration);
-
     }
-
 
     function test_cannot_perform_admin_functions_as_borrower_after_migration() public {
         IdleMigration migration = _deployMigration();
@@ -466,7 +458,7 @@ contract IdleMigrationTest is Test {
         bool[] memory _tokensEnabled = new bool[](_depositTokensLength);
         uint256[] memory _minTokensOut = new uint256[](_depositTokensLength);
 
-        for (uint256 i; i < _tokensEnabled.length; ) {
+        for (uint256 i; i < _tokensEnabled.length;) {
             _tokensEnabled[i] = false;
             unchecked {
                 ++i;
@@ -475,16 +467,16 @@ contract IdleMigrationTest is Test {
         bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
         vm.expectRevert(bytes("Unauthorised"));
         IFeeCollector(idleFeeCollector).deposit(_tokensEnabled, _minTokensOut, 0);
-        
+
         // attemp to withdraw
         vm.expectRevert(bytes("Unauthorised"));
-        IFeeCollector(idleFeeCollector).withdraw(DAI,idleTreasuryLeagueMultiSig, 1000 );
-       
+        IFeeCollector(idleFeeCollector).withdraw(DAI, idleTreasuryLeagueMultiSig, 1000);
+
         // attempt to replace admin
         vm.expectRevert(bytes("Unauthorised"));
         IFeeCollector(idleFeeCollector).replaceAdmin(idleTreasuryLeagueMultiSig);
-       
-        // attempt to withdraw underlying      
+
+        // attempt to withdraw underlying
         vm.expectRevert(bytes("Unauthorised"));
         IFeeCollector(idleFeeCollector).withdrawUnderlying(idleTreasuryLeagueMultiSig, 10000, _minTokensOut);
 
@@ -495,7 +487,6 @@ contract IdleMigrationTest is Test {
         // attempt to register token to deposit list
         vm.expectRevert(bytes("Unauthorised"));
         IFeeCollector(idleFeeCollector).registerTokenToDepositList(DAI);
-       
 
         vm.stopPrank();
 
@@ -506,9 +497,8 @@ contract IdleMigrationTest is Test {
 
         vm.expectRevert(bytes("Unauthorised"));
         IFeeCollector(idleFeeCollector).deposit(_tokensEnabled, _minTokensOut, 0);
-        
-        vm.stopPrank();
 
+        vm.stopPrank();
     }
 
     function test_chainlink_price_feed() external {
@@ -545,29 +535,28 @@ contract IdleMigrationTest is Test {
 
     // fund a loan as a lender
     function _lenderFundLoan(address _lineOfCredit) internal returns (bytes32 id) {
-
         assertEq(vm.activeFork(), ethMainnetFork, "mainnet fork is not active");
-        
+
         // vm.roll(block.number + 5000);
 
         vm.startPrank(idleTreasuryLeagueMultiSig);
         ILineOfCredit(_lineOfCredit).addCredit(
-            1000,               // drate
-            1000,               // frate
-            loanSizeInDai,      // amount
-            DAI,                // token
-            daiWhale            // lender
+            1000, // drate
+            1000, // frate
+            loanSizeInDai, // amount
+            DAI, // token
+            daiWhale // lender
         );
         vm.stopPrank();
 
         vm.startPrank(daiWhale);
         IERC20(DAI).approve(_lineOfCredit, loanSizeInDai);
         id = ILineOfCredit(_lineOfCredit).addCredit(
-            1000,               // drate
-            1000,               // frate
-            loanSizeInDai,      // amount
-            DAI,                // token
-            daiWhale            // lender
+            1000, // drate
+            1000, // frate
+            loanSizeInDai, // amount
+            DAI, // token
+            daiWhale // lender
         );
         vm.stopPrank();
 
@@ -575,7 +564,6 @@ contract IdleMigrationTest is Test {
 
         emit log_named_bytes32("credit id", id);
     }
-
 
     function _simulateRevenueGeneration(uint256 amt) internal returns (uint256 revenue) {
         vm.deal(idleFeeCollector, amt + 0.5 ether); // add a bit to cover gas
@@ -603,7 +591,7 @@ contract IdleMigrationTest is Test {
 
         // we'll skip the swapping and just send the Weth directly to the contract,
         // so all deposit tokens can be disabled
-        for (uint256 i; i < _tokensEnabled.length; ) {
+        for (uint256 i; i < _tokensEnabled.length;) {
             _tokensEnabled[i] = false;
             unchecked {
                 ++i;
@@ -611,8 +599,6 @@ contract IdleMigrationTest is Test {
         }
 
         bytes memory data = abi.encodeWithSelector(IFeeCollector.deposit.selector, _tokensEnabled, _minTokensOut, 0);
-        emit log_named_bytes4("deposit selector", IFeeCollector.deposit.selector);
-        emit log_named_bytes("deposit data", data);
 
         assertEq(IFeeCollector.deposit.selector, bytes4(data), "deposit selector should match first 4 bytes of data");
 
@@ -653,7 +639,11 @@ contract IdleMigrationTest is Test {
         // voting can only start after the delay
         vm.roll(block.number + idleVotingDelay + 1);
 
-        assertEq(uint256(IGovernorBravo(idleGovernanceBravo).state(id)), uint256(IGovernorBravo.ProposalState.Active), "state should be active");
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Active),
+            "state should be active"
+        );
 
         vm.stopPrank();
     }
@@ -677,25 +667,18 @@ contract IdleMigrationTest is Test {
         calldatas[0] = abi.encode(migrationContract); // instead of using encodePacked which removes padding, calldata expects 32byte chunks
         calldatas[1] = abi.encode("");
 
-        emit log_named_address("target", targets[0]);
-        emit log_named_bytes("calldata", calldatas[0]);
-        emit log_named_string("signature", signatures[0]);
-        emit log_named_uint("value", values[0]);
-
-        id = IGovernorBravo(idleGovernanceBravo).propose(
-            targets,
-            values,
-            signatures,
-            calldatas,
-            dummyProposal
-        );
+        id = IGovernorBravo(idleGovernanceBravo).propose(targets, values, signatures, calldatas, dummyProposal);
 
         emit log_named_uint("proposal id: ", id);
 
         // voting can only start after the delay
         vm.roll(block.number + idleVotingDelay + 1);
 
-        assertEq(uint256(IGovernorBravo(idleGovernanceBravo).state(id)), uint256(IGovernorBravo.ProposalState.Active), "governor bravo state should be active");
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Active),
+            "governor bravo state should be active"
+        );
 
         vm.stopPrank();
     }
@@ -715,7 +698,11 @@ contract IdleMigrationTest is Test {
 
         // queue the tx
         IGovernorBravo(idleGovernanceBravo).queue(id);
-        assertEq(uint256(IGovernorBravo(idleGovernanceBravo).state(id)), uint256(IGovernorBravo.ProposalState.Queued), "governor bravo state should be queued");
+        assertEq(
+            uint256(IGovernorBravo(idleGovernanceBravo).state(id)),
+            uint256(IGovernorBravo.ProposalState.Queued),
+            "governor bravo state should be queued"
+        );
 
         // execute the tx, can only happen after timelock delay has passed
         vm.warp(block.timestamp + idleTimelockDelay);
@@ -788,12 +775,10 @@ contract IdleMigrationTest is Test {
         assertEq(feeCollectorBeneficiaries[3], idleStakingFeeSwapper);
         assertEq(feeCollectorAllocations[3], 20000);
 
-        for (uint i = 4; i < feeCollectorAllocations.length; ++i) {
+        for (uint256 i = 4; i < feeCollectorAllocations.length; ++i) {
             assertEq(feeCollectorAllocations[i], 0, "allocation should be zero");
         }
     }
-
-
 
     ///////////////////////////////////////////////////////
     //                      U T I L S                    //

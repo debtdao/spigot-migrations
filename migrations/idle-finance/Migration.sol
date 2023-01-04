@@ -19,22 +19,13 @@ interface IFeeCollector {
 
     function replaceAdmin(address _newAdmin) external;
 
-    function replaceBeneficiaryAt(
-        uint256 _index,
-        address _newBeneficiary,
-        uint256[] calldata _newAllocation
-    ) external;
+    function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation)
+        external;
 
-    function removeBeneficiaryAt(
-        uint256 _index,
-        uint256[] calldata _newAllocation
-    ) external;
+    function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external;
 
-    function deposit(
-        bool[] memory _depositTokensEnabled,
-        uint256[] memory _minTokenOut,
-        uint256 _minPoolAmountOut
-    ) external;
+    function deposit(bool[] memory _depositTokensEnabled, uint256[] memory _minTokenOut, uint256 _minPoolAmountOut)
+        external;
 
     function addAddressToWhiteList(address _addressToAdd) external;
 
@@ -139,25 +130,25 @@ contract IdleMigration {
 
         // deploy spigot
         spigot = ILineFactory(lineFactory_).deploySpigot(
-            address(this),                  // owner
-            idleTreasuryLeagueMultisig      // operator - Treasury Multisig
+            address(this), // owner
+            idleTreasuryLeagueMultisig // operator - Treasury Multisig
         );
         iSpigot = ISpigot(spigot);
 
         // deploy escrow
         escrow = ILineFactory(lineFactory_).deployEscrow(
-            0,                              // min credit ratio
-            address(this),                  // owner
-            idleTreasuryLeagueMultisig      // borrower
+            0, // min credit ratio
+            address(this), // owner
+            idleTreasuryLeagueMultisig // borrower
         );
 
         // note:    The Fee Collector distributes revenue to multiple beneficiaries, we want 100% of the
         //          revenue sent to the spigot to go to paying back the loan, therefore revenueSplit = 100%
         ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
             borrower: idleTreasuryLeagueMultisig,
-            ttl: ttl_,                          // time to live
-            cratio: 0,                            // uint32(creditRatio),
-            revenueSplit: 100                     // uint8(revenueSplit) - 100% to spigot
+            ttl: ttl_, // time to live
+            cratio: 0, // uint32(creditRatio),
+            revenueSplit: 100 // uint8(revenueSplit) - 100% to spigot
         });
 
         // deploy the line of credit
@@ -202,9 +193,9 @@ contract IdleMigration {
         // programs the function into the spigot which gets called when Spigot is removed
         // the operator is the entity to whom the spigot is returned when loan is repaid
         ISpigot.Setting memory spigotSettings = ISpigot.Setting(
-            100,                                    // 100% to owner
-            bytes4(0),                              // no claim fn, indicating push payments only
-            _getSelector("replaceAdmin(address)")   // transferOwnerFn (gets transferred to operator)
+            100, // 100% to owner
+            bytes4(0), // no claim fn, indicating push payments only
+            _getSelector("replaceAdmin(address)") // transferOwnerFn (gets transferred to operator)
         );
 
         // add a revenue stream
@@ -288,11 +279,13 @@ contract IdleMigration {
 
     /// @dev This function is a safeguard against the protocol switching beneficiaries
     ///      or changing allocations between the deployment of the migration contract and the migration
-    ///      by replacing any duplicate beneficiary addresses
+    ///      itself by replacing any duplicate beneficiary addresses.
     function _setBeneficiariesAndAllocations() internal {
         address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
-        uint256 numBeneficiaries = existingBeneficiaries.length > 4 ? existingBeneficiaries.length : 4;
-    
+
+        // we need the number of beneficiaries to be at minimum 4
+        uint256 numBeneficiaries = existingBeneficiaries.length < 4 ? 4 : existingBeneficiaries.length;
+
         uint256[] memory newAllocations = new uint256[](numBeneficiaries);
 
         newAllocations[0] = 0; // smart treasury
@@ -301,10 +294,12 @@ contract IdleMigration {
         newAllocations[3] = 20000; // staking
 
         // zero-out any additional beneficiary allocations (therefore no need to worry about addresses)
-        for (uint256 i = 4; i < numBeneficiaries; ) {
-            newAllocations[i] = 0;
-            unchecked {
-                ++i;
+        if (numBeneficiaries > 4) {
+            for (uint256 i = 4; i < numBeneficiaries;) {
+                newAllocations[i] = 0;
+                unchecked {
+                    ++i;
+                }
             }
         }
 
@@ -369,14 +364,18 @@ contract IdleMigration {
         return bytes4(keccak256(bytes(signature)));
     }
 
+    /// @notice Checks if the beneficiaries array contains a duplicate address in a different position
     /// @dev    We know that the smartTreasury address will always be at index 0, so we can return 0 as null
-    function _hasDuplicate(address[] memory beneficiaries, address addressToCheck) internal returns (bool, uint256) {     
+    /// @param  beneficiaries List of the existing beneficiary addresses
+    /// @param  addressToCheck The address to check against for duplicates
+    /// @return True if a duplicate exists, along with the index at which the duplicate is located
+    function _hasDuplicate(address[] memory beneficiaries, address addressToCheck) internal returns (bool, uint256) {
         for (uint256 i; i < beneficiaries.length;) {
-            if (beneficiaries[i] == addressToCheck) { return (true, i); }
+            if (beneficiaries[i] == addressToCheck) return (true, i);
             unchecked {
                 ++i;
             }
         }
-        return (false,0);
+        return (false, 0);
     }
 }
