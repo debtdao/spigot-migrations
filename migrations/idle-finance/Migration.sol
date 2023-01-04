@@ -316,8 +316,7 @@ contract IdleMigration {
         emit ReplacedBeneficiary(1, spigot, newAllocations[1]);
 
         // memory variables to be reused
-        address beef = address(0xbeef);
-        address addressToMove;
+        address temp;
         bool hasDuplicate;
         uint256 idx;
 
@@ -325,11 +324,10 @@ contract IdleMigration {
         if (existingBeneficiaries[2] != idleRebalancer) {
             (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleRebalancer);
             if (hasDuplicate && idx != 2) {
-                addressToMove = existingBeneficiaries[2];
-                iFeeCollector.replaceBeneficiaryAt(2, beef, newAllocations);
-                iFeeCollector.replaceBeneficiaryAt(idx, addressToMove, newAllocations);
-                existingBeneficiaries[idx] = addressToMove;
-                emit ReplacedBeneficiary(idx, addressToMove, 0);
+                temp = address(uint160(2 * block.timestamp));
+                iFeeCollector.replaceBeneficiaryAt(idx, temp, newAllocations);
+                existingBeneficiaries[idx] = temp;
+                emit ReplacedBeneficiary(idx, temp, 0);
             } 
             iFeeCollector.replaceBeneficiaryAt(2, idleRebalancer, newAllocations);
             existingBeneficiaries[2] = idleRebalancer;
@@ -340,14 +338,12 @@ contract IdleMigration {
         if (existingBeneficiaries[3] != idleStakingFeeSwapper) {
             (hasDuplicate, idx) = _hasDuplicate(existingBeneficiaries, idleRebalancer);
             if (hasDuplicate && idx != 3) {
-                addressToMove = existingBeneficiaries[3];
-                iFeeCollector.replaceBeneficiaryAt(3, beef, newAllocations);
-                iFeeCollector.replaceBeneficiaryAt(idx, addressToMove, newAllocations);
-                existingBeneficiaries[idx] = addressToMove;
-                emit ReplacedBeneficiary(idx, addressToMove, 0);
+                temp = address(uint160(2 * block.timestamp));
+                iFeeCollector.replaceBeneficiaryAt(idx, temp, newAllocations);
+                existingBeneficiaries[idx] = temp;
+                emit ReplacedBeneficiary(idx, temp, 0);
             }
             iFeeCollector.replaceBeneficiaryAt(3, idleStakingFeeSwapper, newAllocations);
-            existingBeneficiaries[3] = idleStakingFeeSwapper;
             emit ReplacedBeneficiary(3, idleStakingFeeSwapper, newAllocations[3]);
         }
     }
