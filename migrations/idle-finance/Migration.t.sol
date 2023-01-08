@@ -420,7 +420,7 @@ contract IdleMigrationTest is Test {
         _checkAllocationsAndBeneficiaries(migration);
     }
 
-    function test_fee_collector_has_correct_beneficiaries_and_allocations_after_changes_before_migration() public {
+    function test_can_migrate_when_beneficiaries_length_is_greater_than_4() public {
         IdleMigration migration = _deployMigration();
         address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
         uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
@@ -454,6 +454,9 @@ contract IdleMigrationTest is Test {
 
         vm.stopPrank();
 
+        feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
+        assertEq(feeCollectorBeneficiariesBefore.length, 5);
+
         // Simulate the governance process, which replaces the admin and performs the migration
         uint256 proposalId = _submitProposal(address(migration));
         _voteAndPassProposal(proposalId, address(migration));
@@ -463,7 +466,7 @@ contract IdleMigrationTest is Test {
         _checkAllocationsAndBeneficiaries(migration);
     }
 
-    function test_fee_collector_has_correct_beneficiaries_and_allocations_if_address_is_missing() public {
+    function test_can_migrate_if_address_is_missing_from_beneficiaries() public {
         IdleMigration migration = _deployMigration();
         address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
         uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
@@ -487,7 +490,7 @@ contract IdleMigrationTest is Test {
 
     }
 
-    function test_fee_collector_has_correct_beneficiaries_when_lenght_is_less_than_4() public {
+    function test_can_migrate_when_beneficiaries_length_is_less_than_4() public {
         IdleMigration migration = _deployMigration();
         address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
         uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
@@ -512,7 +515,7 @@ contract IdleMigrationTest is Test {
         }
 
         vm.stopPrank();
-        
+
         feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
         assertEq(feeCollectorBeneficiariesBefore.length, 2);
 
