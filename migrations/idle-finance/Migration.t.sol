@@ -39,6 +39,7 @@ interface IFeeCollector {
     function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation)
         external;
     function addBeneficiaryAddress(address _newBeneficiary, uint256[] calldata _newAllocation) external;
+      function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external;
 }
 
 interface IWeth {
@@ -386,6 +387,10 @@ contract IdleMigrationTest is Test {
         vm.stopPrank();
     }
 
+    ///////////////////////////////////////////////////////
+    //              B E N E F I C I A R I E S            //
+    ///////////////////////////////////////////////////////
+
     /*
         note: this shows the beneficiaries and allocations as they are before and should be after
 
@@ -458,29 +463,68 @@ contract IdleMigrationTest is Test {
         _checkAllocationsAndBeneficiaries(migration);
     }
 
-        function test_fee_collector_has_correct_beneficiaries_and_allocations_if_address_is_missing() public {
-            IdleMigration migration = _deployMigration();
-            address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
-            uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
+    function test_fee_collector_has_correct_beneficiaries_and_allocations_if_address_is_missing() public {
+        IdleMigration migration = _deployMigration();
+        address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
+        uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
 
-            address beef = makeAddr("beef");
-             vm.startPrank(idleTimelock);
-            // remove the rebalancer
-            IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, beef, feeCollectorAllocationsBefore);
-            feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
-            vm.stopPrank();
+        address beef = makeAddr("beef");
+            vm.startPrank(idleTimelock);
+        // remove the rebalancer
+        IFeeCollector(idleFeeCollector).replaceBeneficiaryAt(2, beef, feeCollectorAllocationsBefore);
+        feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
+        vm.stopPrank();
 
-            assertEq(feeCollectorBeneficiariesBefore[2], beef);
+        assertEq(feeCollectorBeneficiariesBefore[2], beef);
 
-            // Simulate the governance process, which replaces the admin and performs the migration
-            uint256 proposalId = _submitProposal(address(migration));
-            _voteAndPassProposal(proposalId, address(migration));
+        // Simulate the governance process, which replaces the admin and performs the migration
+        uint256 proposalId = _submitProposal(address(migration));
+        _voteAndPassProposal(proposalId, address(migration));
 
-            assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
+        assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
 
-            _checkAllocationsAndBeneficiaries(migration);
+        _checkAllocationsAndBeneficiaries(migration);
 
+    }
+
+    function test_fee_collector_has_correct_beneficiaries_when_lenght_is_less_than_4() public {
+        IdleMigration migration = _deployMigration();
+        address[] memory feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
+        uint256[] memory feeCollectorAllocationsBefore = IFeeCollector(idleFeeCollector).getSplitAllocation();
+
+        assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(idleTimelock));
+        vm.startPrank(idleTimelock);
+
+        uint256 len = feeCollectorBeneficiariesBefore.length;
+
+        while (len > 2) {
+            uint256 idx = len-1;
+            uint256[] memory tempAllocations = new uint256[](idx);
+            tempAllocations[0] = 100000;
+            for (uint i = 1; i < tempAllocations.length;) {
+                tempAllocations[i] = 0;
+                unchecked {
+                    ++i;
+                }
+            }
+            IFeeCollector(idleFeeCollector).removeBeneficiaryAt(idx, tempAllocations);
+            len--;
         }
+
+        vm.stopPrank();
+        
+        feeCollectorBeneficiariesBefore = IFeeCollector(idleFeeCollector).getBeneficiaries();
+        assertEq(feeCollectorBeneficiariesBefore.length, 2);
+
+        // Simulate the governance process, which replaces the admin and performs the migration
+        uint256 proposalId = _submitProposal(address(migration));
+        _voteAndPassProposal(proposalId, address(migration));
+
+        assertTrue(IFeeCollector(idleFeeCollector).isAddressAdmin(migration.spigot()));
+
+        _checkAllocationsAndBeneficiaries(migration);
+
+    }
 
     function test_cannot_perform_admin_functions_as_borrower_after_migration() public {
         IdleMigration migration = _deployMigration();
