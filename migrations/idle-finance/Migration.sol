@@ -301,8 +301,9 @@ contract IdleMigration {
     ///      addresses, and the allocations are set with every change, making this function extremely gas-heavy
     ///      to do in a safe and secure way
     /// @dev The behaviour of this function, and therefore cost to execute, will vary based on the number of existing
-    ///      beneficiaries present in the FeeCollector, as determiend by `MIN_BENEFICIARIES and `MAX_BENEFICIARIES`,
-    ///      as a new uint256[] needs to be dynamically created in memory for every step over, or above, an array length of `TARGET_BENEFICIARIES_LENGTH`.
+    ///      beneficiaries present in the FeeCollector, as determiend by `MIN_BENEFICIARIES and `MAX_BENEFICIARIES` on 
+    ///      the FeeCollector, as a new uint256[] needs to be dynamically created in memory for every step over, or 
+    ///      above, an array length of `TARGET_BENEFICIARIES_LENGTH`.
     function _setBeneficiariesAndAllocations() internal {
         address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
         uint256 numBeneficiaries = existingBeneficiaries.length; // gas-saving
