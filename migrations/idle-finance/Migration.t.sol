@@ -598,14 +598,14 @@ contract IdleMigrationTest is Test {
         assert(daiPrice > 0);
     }
 
-    function test_migration_vote_not_passed() external {
+    function test_migration_fails_if_vote_not_passed() external {
         IdleMigration migration = _deployMigration();
 
         // governance
         _proposeAndVoteToFail(address(migration));
     }
 
-    function test_migration_vote_but_no_quorum() external {
+    function test_migration_fails_when_vote_does_not_reach_quorum() external {
         IdleMigration migration = _deployMigration();
 
         // governance
