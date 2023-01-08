@@ -47,12 +47,6 @@ interface IFeeCollector {
 ///         executed by the Idle Timelock.
 contract IdleMigration {
 
-    // structs
-    struct BeneficiaryAllocation {
-        address beneficiary;
-        uint256 allocation;
-    }
-
     // interfaces
     IFeeCollector iFeeCollector;
     ISpigot iSpigot;
