@@ -88,7 +88,9 @@ contract IdleMigration {
 
     uint256 deployedAt;
 
-    uint256 private constant cooldownPeriod = 30 days;
+    uint256 private constant COOLDOWN_PERIOD = 30 days;
+
+    uint256 private constant TARGET_BENEFICIARIES_LENGTH = 4;
 
     /*//////////////////////////////////////////////////////////////
                             E V E N T S
@@ -132,6 +134,12 @@ contract IdleMigration {
                         C O N S T R U C T O R
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Initializes the migration contract
+    /// @dev Sets the LineFactory address, Time-to-live (ttl) and `deployedAt` time
+    /// @dev Deploys the Spigot and Escrow contracts via the LineFactory
+    /// @dev Deploys a Secured Line of Credit for the FeeCollector
+    /// @param lineFactory_ The deployed LineFactory address
+    /// @param ttl_ Time-to-live for the loan
     constructor(address lineFactory_, uint256 ttl_) {
         deployedAt = block.timestamp;
 
@@ -176,6 +184,7 @@ contract IdleMigration {
         _;
     }
 
+    /// @dev    For functions that can only be called by the Idle Treasury League Multisig
     modifier onlyIdle() {
         if (msg.sender != idleTreasuryLeagueMultisig) revert NotIdleMultisig();
         _;
@@ -189,6 +198,10 @@ contract IdleMigration {
     /// @dev    Can only be called my an authorized user, ie the governance Timelock
     /// @dev    Adds a revenue stream to the Spigot, and makes the Line of Credit the owner
     ///         of the Spigot and Escrow contracts
+    /// @dev    Adds the Spigot as a whitelisted address on the FeeCollector and sets the `deposit()` fn
+    ///         as a whitelist function on the Spigot.
+    /// @dev    Transfers ownership of the Spigot and Escrow to the SecuredLine, then initializes the Line
+    /// @dev    Sets the list of beneficiaries and their allocations, and sets the Spigot as the FeeCollector's admin
     function migrate() external onlyAuthorized {
         if (!iFeeCollector.isAddressAdmin(address(this))) {
             revert NotFeeCollectorAdmin();
@@ -265,7 +278,7 @@ contract IdleMigration {
             revert NoRecoverAfterSuccessfulMigration();
         }
 
-        if (block.timestamp < deployedAt + cooldownPeriod) {
+        if (block.timestamp < deployedAt + COOLDOWN_PERIOD) {
             revert CooldownPeriodStillActive();
         }
 
@@ -286,13 +299,71 @@ contract IdleMigration {
                         I N T E R N A L                    
     //////////////////////////////////////////////////////*/
 
-    /// @dev This sets the Beneficiaries array in the FeeCollector to a length of 4.
-    /// @dev The allocation values are temporary, as they'll be set at a later stage
+    /// @notice Sets the list of beneficiaries for the FeeCollector and their corresponding allocation values
+    /// @dev This function includes a safeguard against the protocol switching beneficiaries
+    ///      or changing allocations between the deployment of the migration contract and the migration occurring
+    ///      by replacing any duplicate beneficiary addresses.
+    /// @dev Updating the beneficiaries list is inherently gas-inefficient as there is no way to batch set
+    ///      addresses, and the allocations are set with every change, making this function extremely gas-heavy
+    ///      to do in a safe and secure way
+    /// @dev The behaviour of this function, and therefore cost to execute, will vary based on the number of existing
+    ///      beneficiaries present in the FeeCollector, as determiend by `MIN_BENEFICIARIES and `MAX_BENEFICIARIES`,
+    ///      as a new uint256[] needs to be dynamically created in memory for every step over, or above, an array length of `TARGET_BENEFICIARIES_LENGTH`.
+    function _setBeneficiariesAndAllocations() internal {
+        address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
+        uint256 numBeneficiaries = existingBeneficiaries.length; // gas-saving
+
+        // set the target beneficiaries
+        address[] memory targetBeneficiaries = new address[](TARGET_BENEFICIARIES_LENGTH);
+        targetBeneficiaries[0] = idleSmartTreasury;
+        targetBeneficiaries[1] = spigot;
+        targetBeneficiaries[2] = idleRebalancer;
+        targetBeneficiaries[3] = idleStakingFeeSwapper;
+
+        // set the target allocations
+        uint256[] memory targetAllocations = new uint256[](numBeneficiaries < TARGET_BENEFICIARIES_LENGTH ? TARGET_BENEFICIARIES_LENGTH : numBeneficiaries);
+        targetAllocations[0] = 0;      // smart treasury
+        targetAllocations[1] = 70000;  // spigot
+        targetAllocations[2] = 10000;  // rebalancer
+        targetAllocations[3] = 20000;  // staking
+
+        if (numBeneficiaries < TARGET_BENEFICIARIES_LENGTH) {
+            // add target beneficiaries if the existing beneficiaries list has a length less than `TARGET_BENEFICIARIES_LENGTH`
+             _fillBeneficiaries(numBeneficiaries, targetBeneficiaries);
+        } else if (numBeneficiaries > TARGET_BENEFICIARIES_LENGTH) {
+            // zero-out any additional beneficiary allocations (therefore no need to worry about removing unused addresses)
+            targetAllocations[4] = 0;
+        }
+
+        // fetch the updated list of beneficiaries from the fee collector
+        existingBeneficiaries = iFeeCollector.getBeneficiaries();
+
+        /// @dev We know that the spigot is not a pre-existing beneficiary, so we can simply add it without checking for a duplicate
+        iFeeCollector.replaceBeneficiaryAt(1, spigot, targetAllocations);
+        existingBeneficiaries[1] = spigot;
+        emit ReplacedBeneficiary(1, spigot, targetAllocations[1]);
+
+        /// @dev we don't care about the value of the targetAllocations allocations  just yet as we set the correct 
+        ///      values at the final step
+        /// @dev only care that they add up to 100000 so as not to revert
+        for (uint i = 2; i < TARGET_BENEFICIARIES_LENGTH; ) {
+            if (existingBeneficiaries[i] != targetBeneficiaries[i]) { existingBeneficiaries = _findAndReplace(existingBeneficiaries, targetBeneficiaries[i], targetAllocations, i); }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @notice Adds beneficiaries until the list length is equal to `TARGET_BENEFICIARIES_LENGTH`.
+    /// @dev    The allocation values are temporary, as they'll be set at a later stage
+    /// @dev    A new temporary allocations array needs to be created for each benecificiary that's added
+    /// @param  numBeneficiaries The number of existing beneficiaries
+    /// @param  _targetBeneficiaries The list of required beneficiaries 
     function _fillBeneficiaries(uint256 numBeneficiaries, address[] memory _targetBeneficiaries) internal {
 
-        for (uint i = numBeneficiaries; i < 4; ) {
+        for (uint i = numBeneficiaries; i < TARGET_BENEFICIARIES_LENGTH; ) {
             uint256[] memory tempAllocations = new uint256[](i+1);
-            tempAllocations[0] = 100000;
+            tempAllocations[0] = 100000; // 100%
 
             // fill the temp allocations array, which we need in order to add a beneficiary
             for (uint j = 1; j < tempAllocations.length;) {
@@ -309,6 +380,15 @@ contract IdleMigration {
         }
     }
 
+
+    /// @notice Adds an address as a beneficiary and sets the corresponding allocation
+    /// @dev    If the array contains a duplicate address, the duplicate is replaced with a temporary address
+    ///         that will ultimately be replaced.     
+    /// @param  _existingBeneficiaries The list of existing beneficiaries
+    /// @param  target The address to add as a beneficiary
+    /// @param  newAllocations The updated allocations array containing the allocation for the `target`
+    /// @param  targetIndex The position in the beneficiaries array to update
+    /// @return The updated list of existing beneficiaries containing the `target` address  
     function _findAndReplace(
         address[] memory _existingBeneficiaries, 
         address target, 
@@ -327,60 +407,6 @@ contract IdleMigration {
         _existingBeneficiaries[targetIndex] = target;
         emit ReplacedBeneficiary(targetIndex, target, newAllocations[targetIndex]);
         return _existingBeneficiaries;
-    }
-
-    /// @dev This function includes a safeguard against the protocol switching beneficiaries
-    ///      or changing allocations between the deployment of the migration contract and the migration occurring
-    ///      by replacing any duplicate beneficiary addresses.
-    /// @dev Updating the beneficiaries list is inherently gas-inefficient as there is no way to batch set
-    ///      addresses, and the allocations are set with every change, making this function extremely gas-heavy
-    ///      to do in a safe and secure way
-    /// @dev The behaviour of this function, and therefore cost to execute, will vary based on the number of existing
-    ///      beneficiaries present in the FeeCollector, as determiend by `MIN_BENEFICIARIES and `MAX_BENEFICIARIES`,
-    ///      as a new uint256[] needs to be dynamically created in memory for every step over, or above, an array length of 4.
-    function _setBeneficiariesAndAllocations() internal {
-        address[] memory existingBeneficiaries = iFeeCollector.getBeneficiaries();
-        uint256 numBeneficiaries = existingBeneficiaries.length; // gas-saving
-
-        // set the target beneficiaries
-        address[] memory targetBeneficiaries = new address[](4);
-        targetBeneficiaries[0] = idleSmartTreasury;
-        targetBeneficiaries[1] = spigot;
-        targetBeneficiaries[2] = idleRebalancer;
-        targetBeneficiaries[3] = idleStakingFeeSwapper;
-
-        // set the target allocations
-        uint256[] memory targetAllocations = new uint256[](numBeneficiaries < 4 ? 4 : numBeneficiaries);
-        targetAllocations[0] = 0;      // smart treasury
-        targetAllocations[1] = 70000;  // spigot
-        targetAllocations[2] = 10000;  // rebalancer
-        targetAllocations[3] = 20000;  // staking
-
-        if (numBeneficiaries < 4) {
-            // add target beneficiaries if the existing beneficiaries list has a length less than 4
-             _fillBeneficiaries(numBeneficiaries, targetBeneficiaries);
-        } else if (numBeneficiaries > 4) {
-            // zero-out any additional beneficiary allocations (therefore no need to worry about removing unused addresses)
-            targetAllocations[4] = 0;
-        }
-
-        // fetch the updated list of beneficiaries from the fee collector
-        existingBeneficiaries = iFeeCollector.getBeneficiaries();
-
-        /// @dev We know that the spigot is not a pre-existing beneficiary, so we can simply add it without checking for a duplicate
-        iFeeCollector.replaceBeneficiaryAt(1, spigot, targetAllocations);
-        existingBeneficiaries[1] = spigot;
-        emit ReplacedBeneficiary(1, spigot, targetAllocations[1]);
-
-        /// @dev we don't care about the value of the targetAllocations allocations  just yet as we set the correct 
-        ///      values at the final step
-        /// @dev only care that they add up to 100000 so as not to revert
-        for (uint i = 2; i < 4; ) {
-            if (existingBeneficiaries[i] != targetBeneficiaries[i]) { existingBeneficiaries = _findAndReplace(existingBeneficiaries, targetBeneficiaries[i], targetAllocations, i); }
-            unchecked {
-                ++i;
-            }
-        }
     }
 
     /*//////////////////////////////////////////////////////
