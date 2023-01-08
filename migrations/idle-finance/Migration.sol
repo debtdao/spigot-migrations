@@ -72,15 +72,15 @@ contract IdleMigration {
 
     // migration
 
+    bool migrationSucceeded;
+
+    uint256 immutable deployedAt;
+
     address public immutable securedLine;
 
     address public immutable spigot;
 
     address public immutable escrow;
-
-    bool migrationSucceeded;
-
-    uint256 deployedAt;
 
     uint256 private constant COOLDOWN_PERIOD = 30 days;
 
