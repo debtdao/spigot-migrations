@@ -10,3 +10,6 @@ out/
 .env
 
 .DS_Store
+
+# solidity coverage
+lcov.info

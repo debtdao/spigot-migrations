@@ -3,12 +3,12 @@ version: 1
 network:
   - name: Ethereum mainnet
   - chain_id: 1
-  - fork_rpc_url: https://eth-mainnet.blastapi.io/${API_KEY}
+  - fork_rpc_url: https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}
 
 actors:
   - arbiter:
       - description: "DebtDAO Multisig"
-      - address: 0x123
+      - address: 0x123 # TODO: Update with mainnet multisig
   - borrower:
       - description: "Idle Treasury League Multisig"
       - address: 0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814
@@ -66,7 +66,7 @@ governance:
           - description: "Target addresses for proposal."
       - values:
           - type: uint256[]
-          - description: "Value in Eth to be sent."
+          - description: "Values in Eth to be sent."
       - signatures:
           - type: string[]
           - description: "Function signatures."

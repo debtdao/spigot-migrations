@@ -10,6 +10,7 @@
 [submodule "lib/Line-of-Credit"]
 	path = lib/Line-of-Credit
 	url = https://github.com/debtdao/Line-of-Credit
+	branch = develop
 [submodule "lib/idle-smart-treasury"]
 	path = lib/idle-smart-treasury
 	url = https://github.com/Idle-Finance/idle-smart-treasury
