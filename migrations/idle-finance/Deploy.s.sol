@@ -22,7 +22,7 @@ contract DeployIdleMigrations is Script {
 
         vm.startBroadcast(deployerKey);
         
-        migration = new IdleMigration(lineFactory, ttl);
+        migration = new IdleMigration(lineFactory, ttl, 0, 0);
 
         console.log("migration contract", address(migration));
 

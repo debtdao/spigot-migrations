@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
@@ -620,7 +620,9 @@ contract IdleMigrationTest is Test {
     function _deployMigration() internal returns (IdleMigration migration) {
         migration = new IdleMigration(
             address(lineFactory),   // line factory
-            90 days                 // ttl
+            90 days,                // ttl
+            0,                      // min credit ration
+            0                       // credit ratio
         );
     }
 

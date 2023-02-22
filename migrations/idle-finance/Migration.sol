@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity 0.8.9;
 
 import {ISpigot} from "Line-of-Credit/interfaces/ISpigot.sol";
 import {ILineOfCredit} from "Line-of-Credit/interfaces/ILineOfCredit.sol";
@@ -139,7 +139,7 @@ contract IdleMigration {
     /// @dev Deploys a Secured Line of Credit for the FeeCollector
     /// @param lineFactory_ The deployed LineFactory address
     /// @param ttl_ Time-to-live for the loan
-    constructor(address lineFactory_, uint256 ttl_) {
+    constructor(address lineFactory_, uint256 ttl_, uint32 minCreditRatio_, uint32 creditRatio_) {
         deployedAt = block.timestamp;
 
         iFeeCollector = IFeeCollector(idleFeeCollector);
@@ -153,7 +153,7 @@ contract IdleMigration {
 
         // deploy escrow
         escrow = ILineFactory(lineFactory_).deployEscrow(
-            0, // min credit ratio
+            minCreditRatio_, // min credit ratio
             address(this), // owner
             idleTreasuryLeagueMultisig // borrower
         );
@@ -162,9 +162,9 @@ contract IdleMigration {
         //          revenue sent to the spigot to go to paying back the loan, therefore revenueSplit = 100%
         ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
             borrower: idleTreasuryLeagueMultisig,
-            ttl: ttl_, // time to live
-            cratio: 0, // uint32(creditRatio),
-            revenueSplit: 100 // uint8(revenueSplit) - 100% to spigot
+            ttl: ttl_,              // time to live
+            cratio: creditRatio_,   // uint32(creditRatio),
+            revenueSplit: 100         // uint8(revenueSplit) - 100% to spigot
         });
 
         // deploy the line of credit
@@ -225,7 +225,7 @@ contract IdleMigration {
         // we need to whitelist the spigot in order for it to call `deposit` on behalf of the operator
         iFeeCollector.addAddressToWhiteList(spigot);
 
-        // add `desposit()` as a whitelisted fn so the operator can call it
+        // add `deposit()` as a whitelisted fn so the operator can call it
         bytes4 depositSelector = IFeeCollector.deposit.selector;
         iSpigot.updateWhitelistedFunction(
             depositSelector, // selector
@@ -349,13 +349,15 @@ contract IdleMigration {
         if (numBeneficiaries < TARGET_BENEFICIARIES_LENGTH) {
             // add target beneficiaries if the existing beneficiaries list has a length less than `TARGET_BENEFICIARIES_LENGTH`
             _fillBeneficiaries(numBeneficiaries, targetBeneficiaries);
+
+            // fetch the updated list of beneficiaries from the fee collector
+            existingBeneficiaries = iFeeCollector.getBeneficiaries();
         } else if (numBeneficiaries > TARGET_BENEFICIARIES_LENGTH) {
             // zero-out any additional beneficiary allocations (therefore no need to worry about removing unused addresses)
             targetAllocations[4] = 0;
         }
 
-        // fetch the updated list of beneficiaries from the fee collector
-        existingBeneficiaries = iFeeCollector.getBeneficiaries();
+
 
         /// @dev We know that the spigot is not a pre-existing beneficiary, so we can simply add it without checking for a duplicate
         iFeeCollector.replaceBeneficiaryAt(1, spigot, targetAllocations);
@@ -395,8 +397,10 @@ contract IdleMigration {
             uint256[] memory tempAllocations = new uint256[](i + 1);
             tempAllocations[0] = 100000; // 100%
 
+            uint256 tempAllocationsLength = tempAllocations.length;
+
             // fill the temp allocations array, which we need in order to add a beneficiary
-            for (uint256 j = 1; j < tempAllocations.length; ) {
+            for (uint256 j = 1; j < tempAllocationsLength; ) {
                 tempAllocations[j] = 0;
                 unchecked {
                     ++j;
