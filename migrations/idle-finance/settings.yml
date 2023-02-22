@@ -1,75 +1,81 @@
 version: 1
 
 network:
-  - name: Ethereum mainnet
-  - chain_id: 1
-  - fork_rpc_url: https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}
+  name: Ethereum mainnet
+  chain_id: 1
+  fork_rpc_url: https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}
 
 actors:
-  - arbiter:
-      - description: "DebtDAO Multisig"
-      - address: 0x123 # TODO: Update with mainnet multisig
-  - borrower:
-      - description: "Idle Treasury League Multisig"
-      - address: 0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814
-  - oracle:
-      - description: "Chainlink Feed Registry"
-      - address: 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf
-  - swap_target:
-      - description: "Ox Protocol"
-      - address: 0xDef1C0ded9bec7F1a1670819833240f027b25EfF
+  - name: arbiter
+    description: "DebtDAO Multisig"
+    address: 0x123 # TODO: Update with mainnet multisig
+  - name: borrower
+    description: "Idle Treasury League Multisig"
+    address: 0xFb3bD022D5DAcF95eE28a6B07825D4Ff9C5b3814
+  - name: oracle
+    description: "Chainlink Feed Registry"
+    address: 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf
+  - name: swap_target
+    description: "Ox Protocol"
+    address: 0xDef1C0ded9bec7F1a1670819833240f027b25EfF
 
-revenue_contract:
-  - name: "Idle Fee Collector"
-  - address: 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4
-  - admin:
-      - description: "Timelock"
-      - address: 0xD6dABBc2b275114a2366555d6C481EF08FDC2556
-  - spigot_settings:
-      - owner_split: 100
-      - claim_function:
-          - signature: N/A
-          - function_selector: N/A
-      - transfer_owner_function:
-          - signature: "replaceAdmin(address)"
-          - function_selector: 0xeb937f46
-  - beneficiaries:
-      - smart_treasury:
-          - address: 0x859E4D219E83204a2ea389DAc11048CC880B6AA8
-          - allocation_pct: 0
-      - spigot:
-          - address: tbd
-          - allocation_pct: 70
-      - rebalancer:
-          - address: 0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B
-          - allocation_pct: 10
-      - staking_fee_swapper:
-          - address: 0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3
-          - allocation_pct: 20
+revenue_contracts:
+  description: "Borrower's revenue generating contracts to collateralize in their Spigot"
+  - name: FeeCollector
+    description: "Idle's Best Yield product line is hardcoded to send all fees to this contract"
+    address: 0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4
+    current_owner:
+      name: Timelock
+      description: "Timelock"
+      address: 0xD6dABBc2b275114a2366555d6C481EF08FDC2556
+    spigot_settings:
+      owner_split: 100
+      claim_function:
+        signature: N/A
+        function_selector: N/A
+      transfer_owner_function:
+        signature: "replaceAdmin(address)"
+        function_selector: 0xeb937f46
+    beneficiaries:
+      - name: smart_treasury
+        address: 0x859E4D219E83204a2ea389DAc11048CC880B6AA8
+        allocation_pct: 0
+      - name: spigot
+        address: tbd
+        allocation_pct: 70
+      - name: rebalancer
+        address: 0xB3C8e5534F0063545CBbb7Ce86854Bf42dB8872B
+        allocation_pct: 10
+      - name: staking_fee_swapper
+        address: 0x1594375Eee2481Ca5C1d2F6cE15034816794E8a3
+        allocation_pct: 20
 
 operations:
-  - deposit:
-      - description: "Calling deposit on the Fee Collector triggers a sale of all held tokens to WETH, and disbursement of the WETH to the beneficiaries according to their allocations."
-      - signature: "deposit(bool[],uint256[],uint256)"
-      - function_selector: 0x810a79ca
-      - example_call_data: 0x810a79ca000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  description: "Functions to whitelist for Idle to continue managing revenue contracts as Spigot Operator"
+  - name: deposit
+    description: "Calling deposit on the Fee Collector triggers a sale of all held tokens to WETH, and disbursement of the WETH to the beneficiaries according to their allocations."
+    signature: "deposit(bool[],uint256[],uint256)"
+    function_selector: 0x810a79ca
+    example_call_data: 0x810a79ca000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 governance:
-  - description: "Based on Compound's Governance Bravo"
-  - template: governor_bravo
-  - voting_delay_blocks: 1
-  - voting_period_blocks: 17280
-  - timelock_delay_seconds: 172800
-  - proposal:
-      - targets:
-          - type: address[]
-          - description: "Target addresses for proposal."
-      - values:
-          - type: uint256[]
-          - description: "Values in Eth to be sent."
-      - signatures:
-          - type: string[]
-          - description: "Function signatures."
-      - calldatas:
-          - type: bytes[]
-          - description: "ABI encoded calldata for functions."
+  name: IDLE Finance
+  description: "Idle's onchain governance based on Compound's Governance Bravo"
+  template: governor_bravo
+  migration_file: "./Migration.sol"
+  voting_delay_blocks: 1
+  voting_period_blocks: 17280
+  timelock_delay_seconds: 172800
+  proposal_args:
+      - name: targets
+        type: address[]
+        description: "Target addresses for proposal."
+      - name: values
+        type: uint256[]
+        description: "Values in Eth to be sent."
+      - name: signatures
+        type: string[]
+        description: "Function signatures."
+      - name: calldatas
+        type: bytes[]
+        description: "ABI encoded calldata for functions."
